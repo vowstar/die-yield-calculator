@@ -1,0 +1,16 @@
+[package]
+name = "die-yield-render"
+description = "Testable wafer-scene model and egui painter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+die-yield-core = { path = "../die-yield-core" }
+egui.workspace = true
+
+[lints]
+workspace = true

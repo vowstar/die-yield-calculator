@@ -1,0 +1,15 @@
+[package]
+name = "die-yield-core"
+description = "Platform-independent die-yield calculations and wafer geometry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[lints]
+workspace = true

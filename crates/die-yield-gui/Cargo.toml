@@ -1,0 +1,32 @@
+[package]
+name = "die-yield-gui"
+description = "Native and WebAssembly interface for die-yield analysis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+die-yield-core = { path = "../die-yield-core" }
+die-yield-render = { path = "../die-yield-render" }
+eframe.workspace = true
+egui.workspace = true
+log.workspace = true
+serde.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+    "Document",
+    "Element",
+    "HtmlCanvasElement",
+    "Window",
+] }
+
+[lints]
+workspace = true
