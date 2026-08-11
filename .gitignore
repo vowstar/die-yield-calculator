@@ -1,0 +1,6 @@
+/target/
+/dist/
+/.trunk/
+*.log
+*.swp
+*.tmp
