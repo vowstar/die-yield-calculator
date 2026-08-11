@@ -1,0 +1,9 @@
+Embedded fonts supplied by epaint_default_fonts 0.36.1:
+
+- Ubuntu-Light.ttf — Ubuntu Font Licence 1.0
+- Hack-Regular.ttf — MIT License
+- NotoEmoji-Regular.ttf — SIL Open Font License 1.1
+- emoji-icon-font.ttf — MIT License
+
+The corresponding license texts are preserved in this directory. The font
+files are provided transitively by egui/epaint.

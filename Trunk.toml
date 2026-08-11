@@ -4,7 +4,9 @@ trunk-version = "^0.21.14"
 target = "web/index.html"
 dist = "dist"
 filehash = true
-minify = "on_release"
+# Trunk 0.21's JS minifier does not yet parse wasm-bindgen 0.2.127 output.
+# wasm-opt still handles the material WebAssembly size reduction in release builds.
+minify = "never"
 
 [serve]
 addresses = ["127.0.0.1"]
