@@ -21,6 +21,14 @@ const NOMINAL_WAFER_INCHES: [(f64, u16); 10] = [
     (450.0, 18),
 ];
 
+#[derive(Clone, Copy)]
+enum SectionGlyph {
+    Wafer,
+    DieGrid,
+    Alignment,
+    ProbeArray,
+}
+
 /// Interactive die-yield workbench shared by native and browser builds.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -75,19 +83,18 @@ impl YieldWorkbench {
     }
 
     fn show_header(&mut self, ui: &mut egui::Ui) {
-        let compact = ui.available_width() < 650.0;
         let mut reset = false;
-        if compact {
+        if ui.available_width() < 430.0 {
             ui.vertical(|ui| {
                 ui.horizontal(header_brand);
                 ui.add_space(5.0);
-                ui.horizontal(|ui| show_header_actions(ui, false, &mut reset));
+                reset |= reset_button(ui);
             });
         } else {
             ui.horizontal(|ui| {
                 header_brand(ui);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    show_header_actions(ui, true, &mut reset);
+                    reset |= reset_button(ui);
                 });
             });
         }
@@ -232,14 +239,10 @@ impl YieldWorkbench {
         let before = self.inputs;
         card().show(ui, |ui| {
             ui.label(RichText::new("Process setup").size(18.0).strong());
-            ui.label(
-                RichText::new("Changes update the map immediately")
-                    .small()
-                    .color(theme::TEXT_MUTED),
-            );
+            auto_update_note(ui);
             ui.add_space(12.0);
 
-            section_heading(ui, "WAFER");
+            section_heading(ui, "WAFER", SectionGlyph::Wafer);
             ui.horizontal_wrapped(|ui| {
                 for diameter in WAFER_PRESETS_MM {
                     let selected = (self.inputs.wafer.diameter_mm - diameter).abs() < f64::EPSILON;
@@ -283,7 +286,7 @@ impl YieldWorkbench {
 
             section_divider(ui);
             ui.horizontal(|ui| {
-                section_heading(ui, "DIE & SCRIBE");
+                section_heading(ui, "DIE & SCRIBE", SectionGlyph::DieGrid);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.toggle_value(&mut self.lock_die_ratio, "Lock ratio")
                         .on_hover_text("Preserve the current die aspect ratio");
@@ -338,7 +341,7 @@ impl YieldWorkbench {
             ui.checkbox(&mut self.link_scribe_lanes, "Link scribe lanes");
 
             section_divider(ui);
-            section_heading(ui, "PROCESS & ALIGNMENT");
+            section_heading(ui, "PROCESS & ALIGNMENT", SectionGlyph::Alignment);
             input_row_f64(
                 ui,
                 "Defect density",
@@ -369,7 +372,7 @@ impl YieldWorkbench {
             );
 
             section_divider(ui);
-            section_heading(ui, "PROBE ARRAY");
+            section_heading(ui, "PROBE ARRAY", SectionGlyph::ProbeArray);
             input_row_u32(
                 ui,
                 "Columns per step",
@@ -491,58 +494,24 @@ fn header_brand(ui: &mut egui::Ui) {
     });
 }
 
-fn show_header_actions(ui: &mut egui::Ui, reverse_order: bool, reset: &mut bool) {
-    let platform = if cfg!(target_arch = "wasm32") {
-        "WEB"
-    } else {
-        "NATIVE"
-    };
-    let reset_button = |ui: &mut egui::Ui| {
-        ui.add_sized(
-            [66.0, HEADER_CONTROL_HEIGHT],
-            egui::Button::new(RichText::new("Reset").color(theme::TEXT_MUTED))
-                .fill(Color32::TRANSPARENT)
-                .stroke(Stroke::new(1.0, theme::BORDER))
-                .corner_radius(12),
-        )
+fn reset_button(ui: &mut egui::Ui) -> bool {
+    let response = ui.add_sized(
+        [82.0, HEADER_CONTROL_HEIGHT],
+        egui::Button::new(RichText::new("Reset").color(theme::TEXT_MUTED))
+            .fill(Color32::TRANSPARENT)
+            .stroke(Stroke::new(1.0, theme::BORDER))
+            .corner_radius(12),
+    );
+    let icon_rect = egui::Rect::from_center_size(
+        egui::pos2(response.rect.left() + 15.0, response.rect.center().y),
+        vec2(15.0, 15.0),
+    );
+    let icon_color = ui.style().interact(&response).fg_stroke.color;
+    paint_reset_glyph(ui.painter(), icon_rect, icon_color);
+
+    response
         .on_hover_text("Restore the recommended starting values")
         .clicked()
-    };
-
-    if reverse_order {
-        *reset |= reset_button(ui);
-        header_pill(ui, platform, theme::BLUE);
-        header_pill(ui, "LIVE MODEL", theme::ACCENT);
-    } else {
-        header_pill(ui, "LIVE MODEL", theme::ACCENT);
-        header_pill(ui, platform, theme::BLUE);
-        *reset |= reset_button(ui);
-    }
-}
-
-fn header_pill(ui: &mut egui::Ui, text: &str, color: Color32) {
-    let width = (text.chars().count() as f32 * 6.4 + 22.0).max(58.0);
-    egui::Frame::new()
-        .fill(Color32::from_rgba_unmultiplied(
-            color.r(),
-            color.g(),
-            color.b(),
-            22,
-        ))
-        .stroke(Stroke::new(
-            1.0,
-            Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 85),
-        ))
-        .corner_radius(12)
-        .show(ui, |ui| {
-            ui.allocate_ui_with_layout(
-                vec2(width, HEADER_CONTROL_HEIGHT),
-                Layout::centered_and_justified(egui::Direction::LeftToRight),
-                |ui| {
-                    ui.label(RichText::new(text).size(10.5).strong().color(color));
-                },
-            );
-        });
 }
 
 fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent: Color32) {
@@ -560,8 +529,116 @@ fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent
         });
 }
 
-fn section_heading(ui: &mut egui::Ui, text: &str) {
-    ui.label(RichText::new(text).size(11.0).strong().color(theme::BLUE));
+fn section_heading(ui: &mut egui::Ui, text: &str, glyph: SectionGlyph) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        let (rect, _) = ui.allocate_exact_size(vec2(18.0, 18.0), egui::Sense::hover());
+        paint_section_glyph(ui.painter(), rect, glyph, theme::BLUE);
+        ui.label(RichText::new(text).size(11.0).strong().color(theme::BLUE));
+    });
+}
+
+fn auto_update_note(ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        let (rect, response) = ui.allocate_exact_size(vec2(8.0, 8.0), egui::Sense::hover());
+        ui.painter()
+            .circle_filled(rect.center(), 3.0, theme::ACCENT);
+        ui.label(
+            RichText::new("Auto-updating as values change")
+                .small()
+                .color(theme::TEXT_MUTED),
+        );
+        response.on_hover_text("Results refresh after any input changes");
+    });
+}
+
+fn paint_section_glyph(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    glyph: SectionGlyph,
+    color: Color32,
+) {
+    let center = rect.center();
+    let stroke = Stroke::new(1.25, color);
+    let soft_fill = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 24);
+
+    match glyph {
+        SectionGlyph::Wafer => {
+            painter.circle_filled(center, 7.0, soft_fill);
+            painter.circle_stroke(center, 7.0, stroke);
+            painter.line_segment(
+                [
+                    egui::pos2(center.x - 2.2, center.y + 5.5),
+                    egui::pos2(center.x, center.y + 3.6),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    egui::pos2(center.x, center.y + 3.6),
+                    egui::pos2(center.x + 2.2, center.y + 5.5),
+                ],
+                stroke,
+            );
+        }
+        SectionGlyph::DieGrid => {
+            for offset in [
+                vec2(-3.5, -3.5),
+                vec2(3.5, -3.5),
+                vec2(-3.5, 3.5),
+                vec2(3.5, 3.5),
+            ] {
+                let cell = egui::Rect::from_center_size(center + offset, vec2(5.2, 5.2));
+                painter.rect_filled(cell, 1, soft_fill);
+                painter.rect_stroke(cell, 1, stroke, egui::StrokeKind::Inside);
+            }
+        }
+        SectionGlyph::Alignment => {
+            painter.circle_stroke(center, 5.1, stroke);
+            painter.line_segment(
+                [
+                    egui::pos2(center.x - 8.0, center.y),
+                    egui::pos2(center.x + 8.0, center.y),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    egui::pos2(center.x, center.y - 8.0),
+                    egui::pos2(center.x, center.y + 8.0),
+                ],
+                stroke,
+            );
+            painter.circle_filled(egui::pos2(center.x + 5.0, center.y - 5.0), 1.5, color);
+        }
+        SectionGlyph::ProbeArray => {
+            let outline = egui::Rect::from_center_size(center, vec2(15.0, 13.0));
+            painter.rect_filled(outline, 2, soft_fill);
+            painter.rect_stroke(outline, 2, stroke, egui::StrokeKind::Inside);
+            for y in [-3.2, 0.0, 3.2] {
+                for x in [-4.0, 0.0, 4.0] {
+                    painter.circle_filled(center + vec2(x, y), 1.0, color);
+                }
+            }
+        }
+    }
+}
+
+fn paint_reset_glyph(painter: &egui::Painter, rect: egui::Rect, color: Color32) {
+    let center = rect.center();
+    let radius = 5.2;
+    let stroke = Stroke::new(1.25, color);
+    let points = (0..=14)
+        .map(|step| {
+            let angle = -0.35 + step as f32 * 4.8 / 14.0;
+            center + vec2(angle.cos(), angle.sin()) * radius
+        })
+        .collect::<Vec<_>>();
+    painter.add(egui::Shape::line(points, stroke));
+    let tip = center + vec2((-0.35_f32).cos(), (-0.35_f32).sin()) * radius;
+    painter.line_segment([tip, tip + vec2(-3.4, -0.4)], stroke);
+    painter.line_segment([tip, tip + vec2(-1.2, 3.0)], stroke);
 }
 
 fn section_divider(ui: &mut egui::Ui) {
