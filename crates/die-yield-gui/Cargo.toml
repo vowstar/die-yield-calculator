@@ -9,22 +9,34 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+base64.workspace = true
 die-yield-core = { path = "../die-yield-core" }
 die-yield-render = { path = "../die-yield-render" }
 eframe.workspace = true
 egui.workspace = true
+epaint_default_fonts.workspace = true
 log.workspace = true
+resvg.workspace = true
 serde.workspace = true
+svg2pdf.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger.workspace = true
+open.workspace = true
+rfd.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = [
+    "Blob",
+    "BlobPropertyBag",
     "Document",
     "Element",
+    "HtmlAnchorElement",
     "HtmlCanvasElement",
+    "HtmlElement",
+    "Url",
     "Window",
 ] }
 

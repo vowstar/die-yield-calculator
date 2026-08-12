@@ -1,4 +1,4 @@
-use crate::theme;
+use crate::{delivery, report, theme};
 use die_yield_core::{FabricationInputs, ValidationErrors, WaferAnalysis, analyze};
 use die_yield_render::{MIN_VISIBLE_SCRIBE_POINTS, WaferPalette, WaferScene, paint_wafer};
 use eframe::egui;
@@ -29,6 +29,12 @@ enum SectionGlyph {
     ProbeArray,
 }
 
+#[derive(Debug)]
+struct ReportNotice {
+    successful: bool,
+    message: String,
+}
+
 /// Interactive die-yield workbench shared by native and browser builds.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -40,6 +46,10 @@ pub struct YieldWorkbench {
     analysis: Option<WaferAnalysis>,
     #[serde(skip)]
     validation: Option<ValidationErrors>,
+    #[serde(skip)]
+    report_open: bool,
+    #[serde(skip)]
+    report_notice: Option<ReportNotice>,
 }
 
 impl Default for YieldWorkbench {
@@ -50,6 +60,8 @@ impl Default for YieldWorkbench {
             link_scribe_lanes: true,
             analysis: None,
             validation: None,
+            report_open: false,
+            report_notice: None,
         };
         workbench.recalculate();
         workbench
@@ -84,19 +96,28 @@ impl YieldWorkbench {
 
     fn show_header(&mut self, ui: &mut egui::Ui) {
         let mut reset = false;
-        if ui.available_width() < 430.0 {
+        let mut report = false;
+        if ui.available_width() < 590.0 {
             ui.vertical(|ui| {
                 ui.horizontal(header_brand);
                 ui.add_space(5.0);
-                reset |= reset_button(ui);
+                ui.horizontal(|ui| {
+                    report |= report_button(ui);
+                    reset |= reset_button(ui);
+                });
             });
         } else {
             ui.horizontal(|ui| {
                 header_brand(ui);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     reset |= reset_button(ui);
+                    report |= report_button(ui);
                 });
             });
+        }
+        if report {
+            self.report_open = true;
+            self.report_notice = None;
         }
         if reset {
             *self = Self::default();
@@ -416,6 +437,187 @@ impl YieldWorkbench {
                 }
             });
     }
+
+    fn show_report_dialog(&mut self, context: &egui::Context) {
+        if !self.report_open {
+            return;
+        }
+
+        let mut open = self.report_open;
+        let mut close = false;
+        let mut export_format = None;
+        let mut print = false;
+        let available_width = context.content_rect().width();
+        let compact = available_width < 480.0;
+        let dialog_width = (available_width - 32.0).clamp(288.0, 440.0);
+        egui::Window::new("report_export")
+            .id(egui::Id::new("report_export_window"))
+            .open(&mut open)
+            .title_bar(false)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(dialog_width)
+            .min_width(dialog_width)
+            .max_width(dialog_width)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .show(context, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Export report").size(20.0).strong());
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        close |= ui
+                            .add(
+                                egui::Button::new(RichText::new("×").size(20.0))
+                                    .frame(false),
+                            )
+                            .on_hover_text("Close report export")
+                            .clicked();
+                    });
+                });
+                ui.label(
+                    RichText::new(
+                        "A4 layout with the wafer map, key results, process parameters, and legend.",
+                    )
+                    .color(theme::TEXT_MUTED),
+                );
+                ui.add_space(12.0);
+
+                section_heading(ui, "EXPORT FORMAT", SectionGlyph::Wafer);
+                let mut show_format_buttons = |ui: &mut egui::Ui| {
+                    for (format, label, detail) in [
+                        (report::ReportFormat::Png, "PNG", "2× raster"),
+                        (report::ReportFormat::Svg, "SVG", "portable vector"),
+                        (report::ReportFormat::Pdf, "PDF", "A4 document"),
+                    ] {
+                        if report_format_button(
+                            ui,
+                            self.analysis.is_some(),
+                            format!("{label}\n{detail}"),
+                            compact,
+                        ) {
+                            export_format = Some(format);
+                        }
+                    }
+                };
+                if compact {
+                    ui.vertical(&mut show_format_buttons);
+                } else {
+                    ui.horizontal(&mut show_format_buttons);
+                }
+
+                ui.add_space(10.0);
+                let print_response = ui.add_enabled(
+                    self.analysis.is_some(),
+                    egui::Button::new(
+                        RichText::new("Print report")
+                            .strong()
+                            .color(Color32::WHITE),
+                    )
+                    .fill(theme::ACCENT)
+                    .stroke(Stroke::new(1.0, theme::ACCENT))
+                    .min_size(vec2(ui.available_width(), 40.0))
+                    .corner_radius(9),
+                );
+                if print_response.clicked() {
+                    print = true;
+                }
+                ui.label(
+                    RichText::new(print_hint())
+                        .small()
+                        .color(theme::TEXT_MUTED),
+                );
+
+                if self.analysis.is_none() {
+                    ui.add_space(8.0);
+                    ui.label(
+                        RichText::new("Resolve the current validation errors before exporting.")
+                            .color(theme::CORAL),
+                    );
+                }
+
+                if let Some(notice) = &self.report_notice {
+                    ui.add_space(8.0);
+                    let color = if notice.successful {
+                        theme::ACCENT
+                    } else {
+                        theme::CORAL
+                    };
+                    egui::Frame::new()
+                        .fill(Color32::from_rgba_unmultiplied(
+                            color.r(),
+                            color.g(),
+                            color.b(),
+                            18,
+                        ))
+                        .stroke(Stroke::new(
+                            1.0,
+                            Color32::from_rgba_unmultiplied(
+                                color.r(),
+                                color.g(),
+                                color.b(),
+                                70,
+                            ),
+                        ))
+                        .corner_radius(8)
+                        .inner_margin(10)
+                        .show(ui, |ui| {
+                            ui.label(RichText::new(&notice.message).small().color(color));
+                        });
+                }
+            });
+        if close {
+            open = false;
+        }
+        self.report_open = open;
+
+        if let Some(format) = export_format {
+            self.export_report(format);
+        }
+        if print {
+            self.print_report();
+        }
+    }
+
+    fn export_report(&mut self, format: report::ReportFormat) {
+        let result = self
+            .analysis
+            .as_ref()
+            .ok_or_else(|| "No valid analysis is available".to_owned())
+            .and_then(|analysis| {
+                report::generate(&self.inputs, analysis, format).map_err(|error| error.to_string())
+            })
+            .and_then(|file| delivery::save_report(&file));
+
+        self.report_notice = match result {
+            Ok(Some(message)) => Some(ReportNotice {
+                successful: true,
+                message,
+            }),
+            Ok(None) => None,
+            Err(message) => Some(ReportNotice {
+                successful: false,
+                message,
+            }),
+        };
+    }
+
+    fn print_report(&mut self) {
+        let result = self
+            .analysis
+            .as_ref()
+            .ok_or_else(|| "No valid analysis is available".to_owned())
+            .and_then(|analysis| delivery::print_report(&self.inputs, analysis));
+
+        self.report_notice = Some(match result {
+            Ok(message) => ReportNotice {
+                successful: true,
+                message,
+            },
+            Err(message) => ReportNotice {
+                successful: false,
+                message,
+            },
+        });
+    }
 }
 
 impl eframe::App for YieldWorkbench {
@@ -424,6 +626,7 @@ impl eframe::App for YieldWorkbench {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let context = ui.ctx().clone();
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::CANVAS).inner_margin(0))
             .show(ui, |ui| {
@@ -458,6 +661,7 @@ impl eframe::App for YieldWorkbench {
                             });
                     });
             });
+        self.show_report_dialog(&context);
     }
 }
 
@@ -512,6 +716,37 @@ fn reset_button(ui: &mut egui::Ui) -> bool {
     response
         .on_hover_text("Restore the recommended starting values")
         .clicked()
+}
+
+fn report_button(ui: &mut egui::Ui) -> bool {
+    let response = ui.add_sized(
+        [94.0, HEADER_CONTROL_HEIGHT],
+        egui::Button::new(RichText::new("Report").color(theme::TEXT_MUTED))
+            .fill(Color32::TRANSPARENT)
+            .stroke(Stroke::new(1.0, theme::BORDER))
+            .corner_radius(12),
+    );
+    let icon_rect = egui::Rect::from_center_size(
+        egui::pos2(response.rect.left() + 16.0, response.rect.center().y),
+        vec2(16.0, 16.0),
+    );
+    let icon_color = ui.style().interact(&response).fg_stroke.color;
+    paint_report_glyph(ui.painter(), icon_rect, icon_color);
+
+    response
+        .on_hover_text("Export or print a styled analysis report")
+        .clicked()
+}
+
+fn report_format_button(ui: &mut egui::Ui, enabled: bool, label: String, compact: bool) -> bool {
+    let width = if compact { ui.available_width() } else { 126.0 };
+    ui.add_enabled(
+        enabled,
+        egui::Button::new(RichText::new(label).line_height(Some(17.0)))
+            .min_size(vec2(width, if compact { 46.0 } else { 54.0 }))
+            .corner_radius(9),
+    )
+    .clicked()
 }
 
 fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent: Color32) {
@@ -641,6 +876,63 @@ fn paint_reset_glyph(painter: &egui::Painter, rect: egui::Rect, color: Color32) 
     painter.line_segment([tip, tip + vec2(-1.2, 3.0)], stroke);
 }
 
+fn paint_report_glyph(painter: &egui::Painter, rect: egui::Rect, color: Color32) {
+    let center = rect.center();
+    let stroke = Stroke::new(1.25, color);
+    painter.line_segment(
+        [
+            egui::pos2(center.x, center.y - 6.0),
+            egui::pos2(center.x, center.y + 2.0),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(center.x - 3.0, center.y - 0.5),
+            egui::pos2(center.x, center.y + 2.5),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(center.x, center.y + 2.5),
+            egui::pos2(center.x + 3.0, center.y - 0.5),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(center.x - 6.0, center.y + 4.0),
+            egui::pos2(center.x - 6.0, center.y + 6.5),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(center.x - 6.0, center.y + 6.5),
+            egui::pos2(center.x + 6.0, center.y + 6.5),
+        ],
+        stroke,
+    );
+    painter.line_segment(
+        [
+            egui::pos2(center.x + 6.0, center.y + 6.5),
+            egui::pos2(center.x + 6.0, center.y + 4.0),
+        ],
+        stroke,
+    );
+}
+
+#[cfg(target_arch = "wasm32")]
+fn print_hint() -> &'static str {
+    "Uses the browser print dialog; choose a printer or Save as PDF."
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn print_hint() -> &'static str {
+    "Opens a print-ready PDF in the default viewer for system printing."
+}
+
 fn section_divider(ui: &mut egui::Ui) {
     ui.add_space(6.0);
     ui.separator();
@@ -720,7 +1012,7 @@ fn legend(ui: &mut egui::Ui, label: &str, color: Color32) {
     ui.label(RichText::new(label).small().color(theme::TEXT_MUTED));
 }
 
-fn wafer_size_label(diameter_mm: f64) -> String {
+pub(crate) fn wafer_size_label(diameter_mm: f64) -> String {
     format!(
         "{} mm ({})",
         compact_decimal(diameter_mm, 2),
@@ -778,7 +1070,7 @@ mod tests {
             (450.0, 5.0, 24.0, 18.0, 1.0, 0.0, 8, 12),
         ];
 
-        for width in [480.0, 820.0, 1440.0] {
+        for width in [360.0, 480.0, 820.0, 1440.0] {
             for (diameter, density, die_width, die_height, column_lane, row_lane, columns, rows) in
                 cases
             {
@@ -793,6 +1085,7 @@ mod tests {
                 workbench.inputs.probe.columns = columns;
                 workbench.inputs.probe.rows = rows;
                 workbench.recalculate();
+                workbench.report_open = true;
                 assert!(workbench.analysis.is_some());
 
                 let context = egui::Context::default();
@@ -802,7 +1095,10 @@ mod tests {
                         screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(width, 900.0))),
                         ..Default::default()
                     },
-                    |ui| workbench.show_workspace(ui),
+                    |ui| {
+                        workbench.show_workspace(ui);
+                        workbench.show_report_dialog(ui.ctx());
+                    },
                 );
                 output.drop_without_applying_deltas();
             }

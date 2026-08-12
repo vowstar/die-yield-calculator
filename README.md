@@ -24,6 +24,12 @@ trunk build --release --public-url ./
 
 The result is written to `dist/`. No server-side runtime or database is required.
 
+## Export and print reports
+
+Open **Report** in the application to export the current analysis as a high-resolution PNG, portable SVG, or print-ready A4 PDF. Every format uses the same styled template and includes the wafer-map snapshot, key results, legend, and complete process parameters.
+
+On the web, exports download through the browser and **Print report** opens the browser print dialog. The native application uses a save dialog and opens a print-ready PDF in the system viewer. Report generation is implemented in shared Rust code and requires no server.
+
 ## Test
 
 ```sh
