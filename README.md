@@ -2,6 +2,8 @@
 
 Rust wafer die-yield and probe-planning calculator. Native and WebAssembly GUI.
 
+![Yield Studio desktop workspace and A4 report](https://github.com/user-attachments/assets/60be4b23-e922-40a9-9cd5-d9cc16618fae)
+
 ## Features
 
 - Wafer map with edge exclusion, die placement, and visible scribe lanes
