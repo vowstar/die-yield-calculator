@@ -1,11 +1,25 @@
 use crate::theme;
 use die_yield_core::{FabricationInputs, ValidationErrors, WaferAnalysis, analyze};
-use die_yield_render::{WaferScene, paint_wafer};
+use die_yield_render::{MIN_VISIBLE_SCRIBE_POINTS, WaferPalette, WaferScene, paint_wafer};
 use eframe::egui;
 use egui::{Align, Color32, Layout, Margin, RichText, Stroke, vec2};
 use serde::{Deserialize, Serialize};
 
 const WIDE_LAYOUT_THRESHOLD: f32 = 990.0;
+const HEADER_CONTROL_HEIGHT: f32 = 38.0;
+const WAFER_PRESETS_MM: [f64; 8] = [76.0, 100.0, 125.0, 150.0, 200.0, 300.0, 330.0, 450.0];
+const NOMINAL_WAFER_INCHES: [(f64, u16); 10] = [
+    (50.0, 2),
+    (75.0, 3),
+    (76.0, 3),
+    (100.0, 4),
+    (125.0, 5),
+    (150.0, 6),
+    (200.0, 8),
+    (300.0, 12),
+    (330.0, 13),
+    (450.0, 18),
+];
 
 /// Interactive die-yield workbench shared by native and browser builds.
 #[derive(Debug, Serialize, Deserialize)]
@@ -176,7 +190,7 @@ impl YieldWorkbench {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     pill(
                         ui,
-                        &format!("Ø {:.0} mm", self.inputs.wafer.diameter_mm),
+                        &format!("Ø {}", wafer_size_label(self.inputs.wafer.diameter_mm)),
                         theme::BLUE,
                     );
                 });
@@ -185,21 +199,23 @@ impl YieldWorkbench {
 
             if let Some(analysis) = &self.analysis {
                 let scene = WaferScene::from_analysis(analysis);
+                let palette = WaferPalette::default();
                 ui.with_layout(Layout::top_down(Align::Center), |ui| {
                     let desired = (ui.available_width() - 4.0).clamp(260.0, 590.0);
                     paint_wafer(ui, &scene, desired);
                 });
                 ui.add_space(8.0);
                 ui.horizontal_wrapped(|ui| {
-                    legend(ui, "Expected good", theme::ACCENT);
-                    legend(ui, "Modeled loss", theme::CORAL);
-                    legend(ui, "Boundary", theme::AMBER);
-                    legend(ui, "Edge band", Color32::from_rgb(89, 108, 132));
+                    legend(ui, "Expected good", palette.productive);
+                    legend(ui, "Modeled loss", palette.defective);
+                    legend(ui, "Boundary", palette.boundary);
+                    legend(ui, "Edge band", palette.excluded);
+                    legend(ui, "Scribe lane", palette.scribe);
                 });
                 ui.add_space(4.0);
                 ui.label(
                     RichText::new(format!(
-                        "{} mapped sites  •  {:.2} mm² active area per die",
+                        "{} mapped sites  •  {:.2} mm² active area  •  scribe shown at ≥{MIN_VISIBLE_SCRIBE_POINTS:.2} pt",
                         format_integer(scene.cells.len() as u64),
                         self.inputs.die.width_mm * self.inputs.die.height_mm
                     ))
@@ -225,15 +241,18 @@ impl YieldWorkbench {
 
             section_heading(ui, "WAFER");
             ui.horizontal_wrapped(|ui| {
-                for diameter in [100.0, 150.0, 200.0, 300.0, 450.0] {
+                for diameter in WAFER_PRESETS_MM {
                     let selected = (self.inputs.wafer.diameter_mm - diameter).abs() < f64::EPSILON;
                     if ui
                         .add(
-                            egui::Button::new(format!("{diameter:.0}"))
+                            egui::Button::new(wafer_size_label(diameter))
                                 .selected(selected)
-                                .corner_radius(8),
+                                .corner_radius(7),
                         )
-                        .on_hover_text(format!("Set wafer diameter to {diameter:.0} mm"))
+                        .on_hover_text(format!(
+                            "Set wafer diameter to {}",
+                            wafer_size_label(diameter)
+                        ))
                         .clicked()
                     {
                         self.inputs.wafer.diameter_mm = diameter;
@@ -244,7 +263,10 @@ impl YieldWorkbench {
             });
             input_row_f64(
                 ui,
-                "Diameter",
+                &format!(
+                    "Diameter ({})",
+                    wafer_inches_label(self.inputs.wafer.diameter_mm)
+                ),
                 &mut self.inputs.wafer.diameter_mm,
                 25.0..=450.0,
                 1.0,
@@ -440,13 +462,13 @@ fn card() -> egui::Frame {
     egui::Frame::new()
         .fill(theme::SURFACE)
         .stroke(Stroke::new(1.0, theme::BORDER))
-        .corner_radius(16)
+        .corner_radius(12)
         .inner_margin(18)
         .shadow(egui::epaint::Shadow {
-            offset: [0, 8],
-            blur: 24,
+            offset: [0, 4],
+            blur: 16,
             spread: 0,
-            color: Color32::from_black_alpha(50),
+            color: Color32::from_black_alpha(18),
         })
 }
 
@@ -476,10 +498,12 @@ fn show_header_actions(ui: &mut egui::Ui, reverse_order: bool, reset: &mut bool)
         "NATIVE"
     };
     let reset_button = |ui: &mut egui::Ui| {
-        ui.add(
+        ui.add_sized(
+            [66.0, HEADER_CONTROL_HEIGHT],
             egui::Button::new(RichText::new("Reset").color(theme::TEXT_MUTED))
                 .fill(Color32::TRANSPARENT)
-                .stroke(Stroke::new(1.0, theme::BORDER)),
+                .stroke(Stroke::new(1.0, theme::BORDER))
+                .corner_radius(12),
         )
         .on_hover_text("Restore the recommended starting values")
         .clicked()
@@ -487,13 +511,38 @@ fn show_header_actions(ui: &mut egui::Ui, reverse_order: bool, reset: &mut bool)
 
     if reverse_order {
         *reset |= reset_button(ui);
-        pill(ui, platform, theme::BLUE);
-        pill(ui, "LIVE MODEL", theme::ACCENT);
+        header_pill(ui, platform, theme::BLUE);
+        header_pill(ui, "LIVE MODEL", theme::ACCENT);
     } else {
-        pill(ui, "LIVE MODEL", theme::ACCENT);
-        pill(ui, platform, theme::BLUE);
+        header_pill(ui, "LIVE MODEL", theme::ACCENT);
+        header_pill(ui, platform, theme::BLUE);
         *reset |= reset_button(ui);
     }
+}
+
+fn header_pill(ui: &mut egui::Ui, text: &str, color: Color32) {
+    let width = (text.chars().count() as f32 * 6.4 + 22.0).max(58.0);
+    egui::Frame::new()
+        .fill(Color32::from_rgba_unmultiplied(
+            color.r(),
+            color.g(),
+            color.b(),
+            22,
+        ))
+        .stroke(Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 85),
+        ))
+        .corner_radius(12)
+        .show(ui, |ui| {
+            ui.allocate_ui_with_layout(
+                vec2(width, HEADER_CONTROL_HEIGHT),
+                Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| {
+                    ui.label(RichText::new(text).size(10.5).strong().color(color));
+                },
+            );
+        });
 }
 
 fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent: Color32) {
@@ -590,8 +639,40 @@ fn pill(ui: &mut egui::Ui, text: &str, color: Color32) {
 
 fn legend(ui: &mut egui::Ui, label: &str, color: Color32) {
     let (rect, _) = ui.allocate_exact_size(vec2(9.0, 9.0), egui::Sense::hover());
-    ui.painter().circle_filled(rect.center(), 4.0, color);
+    ui.painter().rect_filled(rect.shrink(0.5), 1, color);
     ui.label(RichText::new(label).small().color(theme::TEXT_MUTED));
+}
+
+fn wafer_size_label(diameter_mm: f64) -> String {
+    format!(
+        "{} mm ({})",
+        compact_decimal(diameter_mm, 2),
+        wafer_inches_label(diameter_mm)
+    )
+}
+
+fn wafer_inches_label(diameter_mm: f64) -> String {
+    if let Some((_, inches)) = NOMINAL_WAFER_INCHES
+        .iter()
+        .find(|(nominal_mm, _)| (diameter_mm - nominal_mm).abs() <= 0.25)
+    {
+        format!("{inches} in")
+    } else {
+        format!("{} in", compact_decimal(diameter_mm / 25.4, 2))
+    }
+}
+
+fn compact_decimal(value: f64, precision: usize) -> String {
+    let mut formatted = format!("{value:.precision$}");
+    if formatted.contains('.') {
+        while formatted.ends_with('0') {
+            formatted.pop();
+        }
+        if formatted.ends_with('.') {
+            formatted.pop();
+        }
+    }
+    formatted
 }
 
 fn format_integer(value: u64) -> String {
@@ -614,20 +695,24 @@ mod tests {
     #[test]
     fn responsive_ui_accepts_parameter_matrix() {
         let cases = [
-            (75.0, 0.0, 4.0, 5.0, 1, 1),
-            (150.0, 0.1, 10.0, 8.0, 2, 4),
-            (300.0, 1.0, 15.0, 12.0, 4, 4),
-            (450.0, 5.0, 24.0, 18.0, 8, 12),
+            (76.0, 0.0, 4.0, 5.0, 0.0, 0.002, 1, 1),
+            (150.0, 0.1, 10.0, 8.0, 0.001, 0.25, 2, 4),
+            (300.0, 1.0, 15.0, 12.0, 0.12, 0.12, 4, 4),
+            (450.0, 5.0, 24.0, 18.0, 1.0, 0.0, 8, 12),
         ];
 
         for width in [480.0, 820.0, 1440.0] {
-            for (diameter, density, die_width, die_height, columns, rows) in cases {
+            for (diameter, density, die_width, die_height, column_lane, row_lane, columns, rows) in
+                cases
+            {
                 let mut workbench = YieldWorkbench::default();
                 workbench.inputs.wafer.diameter_mm = diameter;
                 workbench.inputs.wafer.edge_exclusion_mm = (diameter * 0.02).max(1.0);
                 workbench.inputs.process.defect_density_cm2 = density;
                 workbench.inputs.die.width_mm = die_width;
                 workbench.inputs.die.height_mm = die_height;
+                workbench.inputs.die.column_lane_mm = column_lane;
+                workbench.inputs.die.row_lane_mm = row_lane;
                 workbench.inputs.probe.columns = columns;
                 workbench.inputs.probe.rows = rows;
                 workbench.recalculate();
@@ -670,5 +755,31 @@ mod tests {
         assert_eq!(format_integer(999), "999");
         assert_eq!(format_integer(1_000), "1,000");
         assert_eq!(format_integer(12_345_678), "12,345,678");
+    }
+
+    #[test]
+    fn standard_wafer_sizes_include_nominal_inches() {
+        let cases = [
+            (50.0, "50 mm (2 in)"),
+            (75.0, "75 mm (3 in)"),
+            (76.0, "76 mm (3 in)"),
+            (100.0, "100 mm (4 in)"),
+            (125.0, "125 mm (5 in)"),
+            (150.0, "150 mm (6 in)"),
+            (200.0, "200 mm (8 in)"),
+            (300.0, "300 mm (12 in)"),
+            (330.0, "330 mm (13 in)"),
+            (450.0, "450 mm (18 in)"),
+        ];
+
+        for (diameter, expected) in cases {
+            assert_eq!(wafer_size_label(diameter), expected);
+        }
+    }
+
+    #[test]
+    fn custom_wafer_size_uses_a_readable_conversion() {
+        assert_eq!(wafer_size_label(254.0), "254 mm (10 in)");
+        assert_eq!(wafer_size_label(123.4), "123.4 mm (4.86 in)");
     }
 }

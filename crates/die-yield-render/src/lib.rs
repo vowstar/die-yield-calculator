@@ -3,6 +3,14 @@
 use die_yield_core::{DieClass, WaferAnalysis};
 use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
+/// Preferred minimum scribe-lane thickness in logical display points.
+///
+/// The painter may reduce this only when a die pitch is too small to preserve
+/// both a visible lane and a visible cell.
+pub const MIN_VISIBLE_SCRIBE_POINTS: f32 = 1.25;
+
+const MIN_VISIBLE_CELL_POINTS: f32 = 0.35;
+
 /// Semantic color role of one die cell in a rendered scene.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CellTone {
@@ -34,6 +42,8 @@ pub struct WaferScene {
     pub diameter_mm: f64,
     /// Diameter after edge exclusion in millimetres.
     pub usable_diameter_mm: f64,
+    /// Column and row scribe-lane widths in millimetres.
+    pub scribe_lane_mm: [f64; 2],
     /// Die cells intersecting the wafer.
     pub cells: Vec<SceneCell>,
 }
@@ -64,6 +74,7 @@ impl WaferScene {
         Self {
             diameter_mm: inputs.wafer.diameter_mm,
             usable_diameter_mm: inputs.wafer.diameter_mm - 2.0 * inputs.wafer.edge_exclusion_mm,
+            scribe_lane_mm: [inputs.die.column_lane_mm, inputs.die.row_lane_mm],
             cells,
         }
     }
@@ -96,6 +107,8 @@ pub struct WaferPalette {
     pub boundary: Color32,
     /// Edge-exclusion die.
     pub excluded: Color32,
+    /// Solid separation between adjacent die cells.
+    pub scribe: Color32,
     /// Orientation crosshair.
     pub guide: Color32,
 }
@@ -103,16 +116,17 @@ pub struct WaferPalette {
 impl Default for WaferPalette {
     fn default() -> Self {
         Self {
-            backdrop: Color32::from_rgb(9, 16, 29),
-            wafer: Color32::from_rgb(18, 32, 50),
-            wafer_highlight: Color32::from_rgb(23, 43, 64),
-            wafer_outline: Color32::from_rgb(76, 105, 139),
-            usable_outline: Color32::from_rgb(83, 214, 201),
-            productive: Color32::from_rgb(54, 190, 178),
-            defective: Color32::from_rgb(239, 99, 133),
-            boundary: Color32::from_rgb(245, 183, 75),
-            excluded: Color32::from_rgb(65, 83, 108),
-            guide: Color32::from_rgba_unmultiplied(128, 160, 191, 55),
+            backdrop: Color32::from_rgb(13, 23, 31),
+            wafer: Color32::from_rgb(25, 40, 49),
+            wafer_highlight: Color32::from_rgb(31, 51, 60),
+            wafer_outline: Color32::from_rgb(91, 113, 127),
+            usable_outline: Color32::from_rgb(100, 169, 160),
+            productive: Color32::from_rgb(61, 151, 139),
+            defective: Color32::from_rgb(190, 79, 83),
+            boundary: Color32::from_rgb(187, 132, 47),
+            excluded: Color32::from_rgb(74, 93, 110),
+            scribe: Color32::from_rgb(8, 17, 23),
+            guide: Color32::from_rgba_unmultiplied(135, 157, 169, 45),
         }
     }
 }
@@ -134,7 +148,7 @@ pub fn paint_wafer(ui: &mut Ui, scene: &WaferScene, desired_side: f32) -> Respon
     painter.circle_filled(
         center,
         radius + 4.0,
-        Color32::from_rgba_unmultiplied(41, 215, 199, 12),
+        Color32::from_rgba_unmultiplied(0, 124, 116, 14),
     );
     painter.circle_filled(center, radius, palette.wafer);
     painter.circle_filled(center, radius * 0.82, palette.wafer_highlight);
@@ -154,16 +168,22 @@ pub fn paint_wafer(ui: &mut Ui, scene: &WaferScene, desired_side: f32) -> Respon
         Stroke::new(1.0, palette.guide),
     );
 
+    // Paint the pitch-sized lane layer first so adjacent cells share one solid,
+    // continuous separator instead of relying on subpixel gaps between fills.
     for cell in &scene.cells {
-        let cell_rect = cell_rect(cell, center, scale);
+        let (pitch_rect, _) = cell_rects(cell, scene.scribe_lane_mm, center, scale);
+        painter.rect_filled(pitch_rect, 0, palette.scribe);
+    }
+
+    for cell in &scene.cells {
+        let (_, cell_rect) = cell_rects(cell, scene.scribe_lane_mm, center, scale);
         let fill = match cell.tone {
             CellTone::Productive => palette.productive,
             CellTone::Defective => palette.defective,
             CellTone::Boundary => palette.boundary,
             CellTone::Excluded => palette.excluded,
         };
-        let corner_radius = (cell_rect.width().min(cell_rect.height()) * 0.12).clamp(0.0, 2.0);
-        painter.rect_filled(cell_rect, corner_radius, fill);
+        painter.rect_filled(cell_rect, 0, fill);
     }
 
     let usable_radius = radius * (scene.usable_diameter_mm / scene.diameter_mm) as f32;
@@ -202,16 +222,40 @@ pub fn paint_wafer(ui: &mut Ui, scene: &WaferScene, desired_side: f32) -> Respon
     })
 }
 
-fn cell_rect(cell: &SceneCell, center: Pos2, scale: f32) -> Rect {
+fn cell_rects(
+    cell: &SceneCell,
+    scribe_lane_mm: [f64; 2],
+    center: Pos2,
+    scale: f32,
+) -> (Rect, Rect) {
     let cell_center = pos2(
         center.x + cell.center_mm[0] as f32 * scale,
         center.y - cell.center_mm[1] as f32 * scale,
     );
-    let size = vec2(
-        (cell.size_mm[0] as f32 * scale - 0.65).max(0.6),
-        (cell.size_mm[1] as f32 * scale - 0.65).max(0.6),
+    let pitch_size = vec2(
+        ((cell.size_mm[0] + scribe_lane_mm[0]) as f32 * scale).max(0.0),
+        ((cell.size_mm[1] + scribe_lane_mm[1]) as f32 * scale).max(0.0),
     );
-    Rect::from_center_size(cell_center, size)
+    let visible_lane = vec2(
+        visible_scribe_width(scribe_lane_mm[0] as f32 * scale, pitch_size.x),
+        visible_scribe_width(scribe_lane_mm[1] as f32 * scale, pitch_size.y),
+    );
+    let cell_size = vec2(
+        (pitch_size.x - visible_lane.x).max(0.0),
+        (pitch_size.y - visible_lane.y).max(0.0),
+    );
+
+    (
+        Rect::from_center_size(cell_center, pitch_size),
+        Rect::from_center_size(cell_center, cell_size),
+    )
+}
+
+fn visible_scribe_width(physical_points: f32, pitch_points: f32) -> f32 {
+    let available = (pitch_points - MIN_VISIBLE_CELL_POINTS).max(0.0);
+    physical_points
+        .max(MIN_VISIBLE_SCRIBE_POINTS)
+        .min(available)
 }
 
 #[cfg(test)]
@@ -229,15 +273,49 @@ mod tests {
         assert_eq!(scene.count(CellTone::Boundary), 124);
         assert_eq!(scene.count(CellTone::Excluded), 40);
         assert_eq!(scene.cells.len(), analysis.placements.len());
+        assert_eq!(scene.scribe_lane_mm, [0.12, 0.12]);
+    }
+
+    #[test]
+    fn subpixel_scribe_lanes_keep_a_solid_display_gap() {
+        let cell = SceneCell {
+            center_mm: [0.0, 0.0],
+            size_mm: [10.0, 8.0],
+            tone: CellTone::Productive,
+        };
+        let (pitch_rect, cell_rect) = cell_rects(&cell, [0.001, 0.001], Pos2::ZERO, 10.0);
+
+        assert!((pitch_rect.width() - cell_rect.width()) >= MIN_VISIBLE_SCRIBE_POINTS - 1.0e-4);
+        assert!((pitch_rect.height() - cell_rect.height()) >= MIN_VISIBLE_SCRIBE_POINTS - 1.0e-4);
+    }
+
+    #[test]
+    fn physical_scribe_width_wins_when_it_is_already_visible() {
+        let cell = SceneCell {
+            center_mm: [0.0, 0.0],
+            size_mm: [10.0, 8.0],
+            tone: CellTone::Productive,
+        };
+        let (pitch_rect, cell_rect) = cell_rects(&cell, [0.5, 0.25], Pos2::ZERO, 10.0);
+
+        assert!((pitch_rect.width() - cell_rect.width() - 5.0).abs() < 1.0e-4);
+        assert!((pitch_rect.height() - cell_rect.height() - 2.5).abs() < 1.0e-4);
     }
 
     #[test]
     fn painter_accepts_size_and_density_matrix() {
-        for (diameter, density) in [(75.0, 0.0), (150.0, 0.1), (300.0, 1.0), (450.0, 5.0)] {
+        for (diameter, density, column_lane, row_lane) in [
+            (76.0, 0.0, 0.0, 0.002),
+            (150.0, 0.1, 0.001, 0.25),
+            (300.0, 1.0, 0.12, 0.12),
+            (450.0, 5.0, 1.0, 0.0),
+        ] {
             let mut inputs = FabricationInputs::default();
             inputs.wafer.diameter_mm = diameter;
             inputs.wafer.edge_exclusion_mm = (diameter * 0.02).max(1.0);
             inputs.process.defect_density_cm2 = density;
+            inputs.die.column_lane_mm = column_lane;
+            inputs.die.row_lane_mm = row_lane;
             let analysis = analyze(&inputs).expect("parameter combination should be valid");
             let scene = WaferScene::from_analysis(&analysis);
 
