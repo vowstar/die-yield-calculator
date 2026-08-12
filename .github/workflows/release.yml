@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Build ${{ matrix.asset_suffix }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: die-yield-gui
+            asset_suffix: linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: die-yield-gui.exe
+            asset_suffix: windows-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary: die-yield-gui
+            asset_suffix: macos-aarch64
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Prepare stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwayland-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+
+      - name: Build native application
+        run: cargo build --release --locked --package die-yield-gui --target ${{ matrix.target }}
+
+      - name: Package Unix application
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p package/LICENSES release-assets
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" \
+            package/die-yield-calculator
+          cp LICENSE-APACHE LICENSE-MIT package/
+          cp LICENSES/* package/LICENSES/
+          chmod +x package/die-yield-calculator
+          tar -czf \
+            "release-assets/die-yield-calculator-${GITHUB_REF_NAME}-${{ matrix.asset_suffix }}.tar.gz" \
+            -C package .
+
+      - name: Package Windows application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package/LICENSES, release-assets
+          Copy-Item "target/${{ matrix.target }}/release/${{ matrix.binary }}" "package/die-yield-calculator.exe"
+          Copy-Item -Path LICENSE-APACHE, LICENSE-MIT -Destination package/
+          Copy-Item -Path LICENSES/* -Destination package/LICENSES/
+          Compress-Archive -Path package/* -DestinationPath "release-assets/die-yield-calculator-${env:GITHUB_REF_NAME}-${{ matrix.asset_suffix }}.zip"
+
+      - name: Upload native asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-asset-${{ matrix.asset_suffix }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  web:
+    name: Build WebAssembly bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Prepare stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install stable Trunk
+        run: cargo install trunk --version 0.21.14 --locked
+
+      - name: Build static WebAssembly site
+        run: trunk build --release --public-url ./
+
+      - name: Package WebAssembly site
+        run: |
+          mkdir -p package/LICENSES release-assets
+          cp -R dist/. package/
+          cp LICENSE-APACHE LICENSE-MIT package/
+          cp LICENSES/* package/LICENSES/
+          cd package
+          zip -r "../release-assets/die-yield-calculator-${GITHUB_REF_NAME}-web.zip" .
+
+      - name: Upload WebAssembly asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-asset-web
+          path: release-assets/*
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: [native, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-asset-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate SHA-256 checksums
+        working-directory: release-assets
+        run: sha256sum die-yield-calculator-* | sort -k2 > SHA256SUMS
+
+      - name: Create release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: release-assets/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
