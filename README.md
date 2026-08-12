@@ -55,22 +55,6 @@ cargo test --workspace
 cargo check --workspace --target wasm32-unknown-unknown
 ```
 
-## GitHub Pages
-
-The included workflow builds and deploys the WebAssembly site on pushes to
-`main`. Select **GitHub Actions** as the publishing source under
-**Settings → Pages** before the first deployment.
-
-## Project Structure
-
-```text
-crates/
-  die-yield-core/    -- Input model, validation, and yield analysis
-  die-yield-render/  -- Wafer scene and egui renderer
-  die-yield-gui/     -- Native and WebAssembly application
-web/                 -- Browser entry point and static assets
-```
-
 ## License
 
 Licensed under either of

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 const WIDE_LAYOUT_THRESHOLD: f32 = 990.0;
 const HEADER_CONTROL_HEIGHT: f32 = 38.0;
+const PROJECT_URL: &str = "https://github.com/vowstar/die-yield-calculator";
 const WAFER_PRESETS_MM: [f64; 8] = [76.0, 100.0, 125.0, 150.0, 200.0, 300.0, 330.0, 450.0];
 const NOMINAL_WAFER_INCHES: [(f64, u16); 10] = [
     (50.0, 2),
@@ -648,13 +649,7 @@ impl eframe::App for YieldWorkbench {
                                             ui.add_space(20.0);
                                             self.show_workspace(ui);
                                             ui.add_space(18.0);
-                                            ui.label(
-                                                RichText::new(
-                                                    "Murphy yield model  •  Results are planning estimates",
-                                                )
-                                                .small()
-                                                .color(theme::TEXT_MUTED),
-                                            );
+                                            project_footer(ui);
                                         },
                                     );
                                 });
@@ -662,6 +657,34 @@ impl eframe::App for YieldWorkbench {
                     });
             });
         self.show_report_dialog(&context);
+    }
+}
+
+fn project_footer(ui: &mut egui::Ui) {
+    let notice = || {
+        RichText::new("Murphy yield model  •  Results are planning estimates")
+            .small()
+            .color(theme::TEXT_MUTED)
+    };
+    let source_link = |ui: &mut egui::Ui| {
+        ui.hyperlink_to(
+            RichText::new("Source on GitHub")
+                .small()
+                .color(theme::TEXT_MUTED),
+            PROJECT_URL,
+        );
+    };
+
+    if ui.available_width() < 590.0 {
+        ui.vertical(|ui| {
+            ui.label(notice());
+            source_link(ui);
+        });
+    } else {
+        ui.horizontal(|ui| {
+            ui.label(notice());
+            ui.with_layout(Layout::right_to_left(Align::Center), source_link);
+        });
     }
 }
 
@@ -1097,6 +1120,7 @@ mod tests {
                     },
                     |ui| {
                         workbench.show_workspace(ui);
+                        project_footer(ui);
                         workbench.show_report_dialog(ui.ctx());
                     },
                 );
