@@ -26,7 +26,10 @@ pub struct WaferGeometry {
 /// Placement phase and process-yield parameters.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProcessSettings {
-    /// Random defect density per square centimetre.
+    /// Effective full-process density of random fatal defects per square centimetre.
+    ///
+    /// Baseline or per-mask values that require a separate process-complexity
+    /// factor are outside the supported input semantics.
     pub defect_density_cm2: f64,
     /// Random-defect yield model.
     #[serde(default)]
@@ -237,7 +240,8 @@ pub struct YieldSummary {
     pub yield_fraction: f64,
     /// Active die area used by the random-defect model in square millimetres.
     pub yield_area_mm2: f64,
-    /// Dimensionless defect exposure, active area in cm² multiplied by D0.
+    /// Dimensionless defect exposure, active area in cm² multiplied by the
+    /// effective full-process D0.
     pub defect_exposure: f64,
     /// Complete dies inside the usable radius before statistical defects.
     pub geometric_usable: u64,

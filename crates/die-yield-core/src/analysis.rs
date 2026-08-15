@@ -52,7 +52,11 @@ pub fn analyze(inputs: &FabricationInputs) -> Result<WaferAnalysis, ValidationEr
     })
 }
 
-/// Calculates random-defect die yield for area in mm² and density in defects/cm².
+/// Calculates random-defect die yield for area in mm² and effective full-process
+/// density of random fatal defects measured in defects/cm².
+///
+/// Baseline or per-mask densities that require a separate process-complexity
+/// factor are outside the supported input semantics.
 ///
 /// `clustering_alpha` is used only by [`YieldModel::NegativeBinomial`] and must be
 /// positive and finite for that model. Invalid negative-binomial alpha values
@@ -90,7 +94,8 @@ pub fn calculate_yield(
     yield_fraction.clamp(0.0, 1.0)
 }
 
-/// Returns Murphy-model yield for die area in mm² and density in defects/cm².
+/// Returns Murphy-model yield for die area in mm² and effective full-process
+/// random-fatal-defect density measured in defects/cm².
 #[must_use]
 pub fn murphy_yield(die_area_mm2: f64, defect_density_cm2: f64) -> f64 {
     calculate_yield(

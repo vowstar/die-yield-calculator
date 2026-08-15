@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 const WIDE_LAYOUT_THRESHOLD: f32 = 990.0;
 const HEADER_CONTROL_HEIGHT: f32 = 38.0;
 const PROJECT_URL: &str = "https://github.com/vowstar/die-yield-calculator";
+pub(crate) const DEFECT_DENSITY_POLICY: &str = "effective full-process random-fatal-defect density; baseline/per-mask values needing a separate process-complexity factor are unsupported";
 const WAFER_PRESETS_MM: [f64; 8] = [76.0, 100.0, 125.0, 150.0, 200.0, 300.0, 330.0, 450.0];
 const NOMINAL_WAFER_INCHES: [(f64, u16); 10] = [
     (50.0, 2),
@@ -403,7 +404,7 @@ impl YieldWorkbench {
             input_row_f64_with_precision(
                 ui,
                 InputField::DefectDensity,
-                "Defect density (D₀)",
+                "Effective defect density (D₀)",
                 &mut self.inputs.process.defect_density_cm2,
                 0.0..=100.0,
                 0.001,
@@ -412,6 +413,11 @@ impl YieldWorkbench {
                 &mut self.numeric_focus,
             );
             self.show_field_error(ui, InputField::DefectDensity);
+            ui.label(
+                RichText::new(format!("D₀ basis: {DEFECT_DENSITY_POLICY}."))
+                .small()
+                .color(theme::TEXT_MUTED),
+            );
             yield_model_row(ui, &mut self.inputs.process.yield_model);
 
             section_divider(ui);

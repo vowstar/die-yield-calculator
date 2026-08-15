@@ -52,6 +52,10 @@ as PNG, SVG, or A4 PDF, or save normalized inputs and exact results as JSON.
 Browser builds download the report directly and use the browser print dialog.
 Native builds use the system save dialog and PDF viewer.
 
+The yield models treat D₀ as an effective full-process density of random fatal
+defects, measured in defects/cm². Per-mask or baseline D₀ values that require a
+separate process-complexity factor are outside the supported input semantics.
+
 ## Calibration validation
 
 An offline workflow validates anonymous Gross Die datasets against the geometric

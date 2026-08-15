@@ -1,6 +1,9 @@
 //! Shared, in-memory report generation for native and browser exports.
 
-use crate::{app::wafer_size_label, theme};
+use crate::{
+    app::{DEFECT_DENSITY_POLICY, wafer_size_label},
+    theme,
+};
 use base64::prelude::*;
 use die_yield_core::{FabricationInputs, WaferAnalysis, YieldModel};
 use die_yield_render::{CellTone, WaferPalette, WaferScene};
@@ -128,6 +131,7 @@ fn build_json_snapshot(analysis: &WaferAnalysis) -> String {
                 "    \"wafer_shape_policy\": \"{}\",\n",
                 "    \"notch_policy\": \"{}\",\n",
                 "    \"yield_area_policy\": \"{}\",\n",
+                "    \"defect_density_policy\": \"{}\",\n",
                 "    \"phase_policy\": \"{}\"\n",
                 "  }},\n",
                 "  \"normalized_inputs\": {{\n",
@@ -178,6 +182,7 @@ fn build_json_snapshot(analysis: &WaferAnalysis) -> String {
             WAFER_SHAPE_POLICY,
             NOTCH_POLICY,
             YIELD_AREA_POLICY,
+            DEFECT_DENSITY_POLICY,
             PHASE_POLICY,
             json_number(inputs.wafer.diameter_mm),
             json_number(inputs.wafer.edge_exclusion_mm),
@@ -235,11 +240,13 @@ pub fn build_svg(
     ));
     let gross_boundary_policy =
         xml_text(&format!("Gross boundary policy: {GROSS_BOUNDARY_POLICY}"));
-    let pitch_policy = xml_text(&format!("Pitch policy: {PITCH_POLICY}"));
-    let radial_edge_policy = xml_text(&format!("Radial edge policy: {RADIAL_EDGE_POLICY}"));
+    let pitch_and_radial_policy = xml_text(&format!(
+        "Pitch policy: {PITCH_POLICY} · Radial edge policy: {RADIAL_EDGE_POLICY}"
+    ));
     let wafer_and_yield_policy = xml_text(&format!(
         "Wafer shape policy: {WAFER_SHAPE_POLICY} · Notch policy: {NOTCH_POLICY} · Yield area policy: {YIELD_AREA_POLICY}"
     ));
+    let defect_density_policy = xml_text(&format!("D₀ basis (/cm²): {DEFECT_DENSITY_POLICY}"));
     let phase_and_map_policy = xml_text(&format!(
         "Phase policy: {PHASE_POLICY} · Map loss locations are illustrative, not predicted"
     ));
@@ -416,7 +423,7 @@ pub fn build_svg(
         &mut svg,
         832.0,
         724.0,
-        "Defect density",
+        "Effective defect density",
         &format!("{:.6} /cm²", inputs.process.defect_density_cm2),
     );
     parameter_row(&mut svg, 832.0, 756.0, "Yield model", model_label);
@@ -544,9 +551,9 @@ pub fn build_svg(
 <text x="112" y="1532" font-size="15" fill="{}">Calculation basis</text>
 <text x="112" y="1556" font-size="11.5" fill="{}">{calculation_identity}</text>
 <text x="112" y="1577" font-size="11.5" fill="{}">{gross_boundary_policy}</text>
-<text x="112" y="1598" font-size="11.5" fill="{}">{pitch_policy}</text>
-<text x="112" y="1619" font-size="11.5" fill="{}">{radial_edge_policy}</text>
-<text x="112" y="1640" font-size="11.5" fill="{}">{wafer_and_yield_policy}</text>
+<text x="112" y="1598" font-size="11.5" fill="{}">{pitch_and_radial_policy}</text>
+<text x="112" y="1619" font-size="11.5" fill="{}">{wafer_and_yield_policy}</text>
+<text x="112" y="1640" font-size="11.5" fill="{}">{defect_density_policy}</text>
 <text x="112" y="1661" font-size="11.5" fill="{}">{phase_and_map_policy}</text>
 <text x="56" y="1697" font-size="13" fill="{}">Planning estimate only. Validate production decisions with process-specific characterization.</text>
 <line x1="56" y1="1714" x2="1184" y2="1714" stroke="{}"/>
@@ -1202,6 +1209,8 @@ mod tests {
         assert!(svg.contains(&format!("Notch policy: {NOTCH_POLICY}")));
         assert!(svg.contains("IDEALIZED TOUCHDOWNS"));
         assert!(svg.contains("active die area only"));
+        assert!(svg.contains("Effective defect density"));
+        assert!(svg.contains(&xml_text(DEFECT_DENSITY_POLICY)));
         assert!(!svg.contains("DIE LOSS"));
     }
 
@@ -1219,6 +1228,13 @@ mod tests {
         let second = build_json_snapshot(&analysis);
         assert_eq!(first, second);
         assert!(first.contains("\"schema_version\": \"die-yield-report/v1\""));
+        assert!(first.contains(&format!(
+            "\"defect_density_policy\": \"{DEFECT_DENSITY_POLICY}\""
+        )));
+        assert!(first.contains(&format!(
+            "\"defect_density_per_cm2\": {}",
+            json_number(analysis.normalized_inputs.process.defect_density_cm2)
+        )));
         assert!(first.contains(&format!(
             "\"horizontal_phase_mm\": {}",
             json_number(analysis.normalized_inputs.process.offset_x_mm)
@@ -1300,6 +1316,7 @@ mod tests {
             ("wafer_shape_policy", WAFER_SHAPE_POLICY),
             ("notch_policy", NOTCH_POLICY),
             ("yield_area_policy", YIELD_AREA_POLICY),
+            ("defect_density_policy", DEFECT_DENSITY_POLICY),
             ("phase_policy", PHASE_POLICY),
         ] {
             assert!(json.contains(&format!("\"{key}\": \"{value}\"")));
