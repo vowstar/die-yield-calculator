@@ -807,14 +807,14 @@ dependencies = [
 
 [[package]]
 name = "die-yield-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "die-yield-gui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64 0.23.1",
  "die-yield-core",
@@ -836,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "die-yield-render"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "die-yield-core",
  "egui",
