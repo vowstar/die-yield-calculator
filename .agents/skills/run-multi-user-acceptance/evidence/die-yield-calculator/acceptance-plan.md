@@ -39,11 +39,11 @@ either a radius was mislabeled as wafer size or a 300 mm selection was
 transcribed incorrectly. Existing evidence cannot distinguish those clerical
 failure paths or prove the original production convention.
 
-After the implementation and regression rounds, the frozen release candidate
+After the implementation and regression rounds, the v0.2.0 release artifact
 passes the structured gate: 4/4 simulated personas satisfied, 19/20 persona
 tasks passed, 13/13 required correctness cases passed, and no blocker or major
 finding remains open
-([round-6-release-candidate.json](rounds/round-6-release-candidate.json)).
+([round-7-v0.2.0-release.json](rounds/round-7-v0.2.0-release.json)).
 Scenario comparison remains a moderate, non-core expert efficiency gap. These
 scores are simulated acceptance, not measured customer satisfaction.
 
@@ -106,6 +106,9 @@ scores are simulated acceptance, not measured customer satisfaction.
 6. **Round 6 — pre-version release candidate:** independently repeat novice, expert,
    verifier, and constrained-keyboard tasks on a hash-frozen WASM artifact and
    require every release gate to pass.
+7. **Round 7 — v0.2.0 release:** rebuild the versioned artifact, repeat the
+   persona, numerical, calibration, export-parity, keyboard, and screenshot
+   challenges, and preserve the zero-participant limitation in the evidence.
 
 Each round is evaluated with
 `.agents/skills/run-multi-user-acceptance/scripts/evaluate_acceptance.py`.

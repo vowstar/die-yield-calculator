@@ -8,10 +8,10 @@ precision, and reproducibility without cluttering the first-use path. A skeptica
 verifier and a keyboard- or narrow-screen user were included as challenge roles.
 
 The findings are based on the structured baseline walkthrough in
-[round-0-baseline.json](rounds/round-0-baseline.json), six subsequent recorded
+[round-0-baseline.json](rounds/round-0-baseline.json), seven subsequent recorded
 acceptance rounds, current UI source, isolated scripted browser/native walkthroughs,
 and automated tests. The final frozen-artifact evidence is in
-[round-6-release-candidate.json](rounds/round-6-release-candidate.json).
+[round-7-v0.2.0-release.json](rounds/round-7-v0.2.0-release.json).
 Source-backed behavior is not presented as observed user sentiment. Numerical
 correctness remains a separate veto gate; visual clarity cannot compensate for
 an incorrect result.

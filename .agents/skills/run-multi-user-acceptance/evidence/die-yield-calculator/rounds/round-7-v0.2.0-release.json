@@ -1,0 +1,382 @@
+{
+  "round": "round-7-v0.2.0-release",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "648965a67844dc92b513a533147e00462449d01a",
+    "version": "0.2.0",
+    "rust_edition": "2024",
+    "index_sha256": "2fd9a92d1ad5204df18ae476845846cf09d1d8f929a6dd0f3d2740026de4ec6b",
+    "javascript_sha256": "6b621a9d6f57ee6664f67921d3e9269a6b968b331f36d56febc93c30be4db96c",
+    "wasm_sha256": "b394d8c08edb72f3c3716e91540129bea7349fb9d04cab9fd5e1642e165882f5",
+    "report_json_sha256": "65b0116747ece91b15fc02a83ccfd29b4a8b297f4a2208f1b9e8a7a22630ba30",
+    "report_svg_sha256": "00103844f830d4013678f3986932fce0cf88722a83495353674864d55b983db4",
+    "readme_image_sha256": "0e653ff147e5c741eb85c1c50abf03d211ae4b67e14075c0b830b2267e4d5896"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "browser": "isolated scripted Firefox 153.0.4 and Chrome 153 desktop sessions",
+    "native": "Linux native release under isolated Xvfb sessions",
+    "viewports": [
+      "1200x950",
+      "1440px desktop",
+      "500x1000"
+    ],
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "Keyboard simulation is not screen-reader or assistive-technology validation.",
+      "No production calibration dataset or fab-wide accuracy claim was evaluated."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "understand-primary-results",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "An isolated Firefox/WASM run immediately showed Gross 767, Yield 92.36%, Expected Good approximately 708, and separate explanations of geometry and random loss."
+          ]
+        },
+        {
+          "id": "understand-wafer-diameter",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "The selected 300 mm (12 in) preset, Diameter (12 in) field, and map badge using the diameter symbol all agreed that the input is nominal wafer diameter."
+          ]
+        },
+        {
+          "id": "change-high-precision-dimension",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Character-by-character entry retained 10.123456 mm and changed Gross from 767 to an independently enumerated 753 and Expected Good to approximately 695."
+          ]
+        },
+        {
+          "id": "select-another-yield-model",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Keyboard interaction selected Poisson and updated the model selector and disclosure title without changing the geometric Gross result."
+          ]
+        },
+        {
+          "id": "inspect-alternate-formula",
+          "core": false,
+          "status": "friction",
+          "evidence": [
+            "The isolated novice automation selected Poisson but stopped with the selector open before capturing its formula disclosure; the separate expert run verified that model-specific formulas are exposed."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "audit-high-precision-geometry",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "An independent corner-fit enumerator reproduced Gross 767 from 10.12 by 8.12 mm pitch and 147 mm usable radius; the UI separately reported 124 partial and 40 edge-band sites."
+          ]
+        },
+        {
+          "id": "audit-four-yield-models",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Independent exposure 0.08 and Murphy result 0.923608780147 matched the exact export; Poisson, Murphy, Seeds, and negative-binomial formulas and parameters were exposed."
+          ]
+        },
+        {
+          "id": "audit-report-assumptions",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "The 2,031-byte JSON report identified schema v1, calculator 0.2.0, geometry method v1, normalized inputs, exact values, boundary, pitch, radial, notch, area, phase, rounding, and illustrative-map policies."
+          ]
+        },
+        {
+          "id": "audit-native-browser-parity",
+          "core": false,
+          "status": "pass",
+          "evidence": [
+            "Fresh native and browser exports were byte-identical for JSON and SVG, and both displayed Gross 767, Murphy 92.36%, and expected good approximately 708."
+          ]
+        },
+        {
+          "id": "audit-calibration-refusal",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "All 12 validator tests passed, including refusal below 12 projects, coefficient withholding, ambiguous-count, unit, area-bound, grouped-holdout, and shared-source attacks."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "rebuild-frozen-artifact",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "An independent Trunk 0.21.14 release build reproduced the frozen index, JavaScript, and WASM hashes exactly."
+          ]
+        },
+        {
+          "id": "attack-geometry-and-models",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Independent grid and analytic oracles reproduced Gross, boundary counts, four formulas, zero and high-exposure limits, monotonicity, and model identities."
+          ]
+        },
+        {
+          "id": "attack-state-and-boundaries",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Invalid values, last-valid state, no-Tab recovery, Reset, tangencies, asymmetric scribes, whole-pitch phases, and the grid-allocation guard passed."
+          ]
+        },
+        {
+          "id": "attack-calibration-release-gates",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "An 11-project candidate returned no recommendation and no coefficients; 150 mm diameter area bounds, units, target semantics, source reuse, and grouped LOPO attacks were rejected."
+          ]
+        },
+        {
+          "id": "audit-neutral-and-release-claims",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "The repository, UI, reports, scripts, skill, and workflows contain no supplied product, customer, or foundry identity and make no real-user or fitted-production claim."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "narrow-information-order",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "At 500 by 1000 the order was result summary, Calculation setup, then Wafer map."
+          ]
+        },
+        {
+          "id": "visible-focus-and-report",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Tab showed a visible Report focus ring, Enter opened the report, and Escape returned to the main view."
+          ]
+        },
+        {
+          "id": "change-wafer-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Keyboard navigation selected the 76 mm preset and updated the result summary."
+          ]
+        },
+        {
+          "id": "recover-invalid-without-refocus",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "A 40 mm edge-exclusion error retained the last result, and replacing it with 3 without Tab cleared the error and restored Gross 31 and Expected Good approximately 29."
+          ]
+        },
+        {
+          "id": "preserve-precise-entry",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Scripted inter-key delay retained the full visible 10.123456 value rather than synchronizing over the active edit buffer."
+          ]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "representative-gross-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Independent active-rectangle enumeration produced Gross 767, partial 124, and edge-band 40 for the default 300 mm geometry."
+      ]
+    },
+    {
+      "id": "four-yield-formulas",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "At unit exposure the implementation and independent analytic values matched for Poisson, Murphy triangular, Seeds, and negative binomial alpha 2."
+      ]
+    },
+    {
+      "id": "yield-limits-and-identities",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Zero, near-zero, high exposure, monotonicity, negative-binomial alpha 1 equals Seeds, and large-alpha convergence to Poisson passed."
+      ]
+    },
+    {
+      "id": "unit-and-precision-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "80 mm2 converted to 0.8 cm2 and exposure 0.08; Murphy yield and exact expectation 708.4079343726257 matched high-precision references."
+      ]
+    },
+    {
+      "id": "half-tie-rounding",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "A one-Gross Poisson fixture at D0 ln(2) yielded exact 0.5, rounded good 1, and displayed defective 0."
+      ]
+    },
+    {
+      "id": "invalid-and-extreme-inputs",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Non-finite and range errors, invalid clustering alpha, dense-grid guard, high exposure, and near-radius exclusion were handled without invalid results."
+      ]
+    },
+    {
+      "id": "phase-and-boundary",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Whole-pitch equivalence, half-pitch change, asymmetric scribes, exact tangencies, partial-boundary, and edge-band cases matched independent geometry."
+      ]
+    },
+    {
+      "id": "stale-and-reset-semantics",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Invalid edits retained clearly marked last-valid results and blocked export; no-Tab recovery and Reset returned consistent current results."
+      ]
+    },
+    {
+      "id": "normalized-phase-report-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Whole-pitch-equivalent offsets emitted identical JSON and SVG with canonical normalized phases."
+      ]
+    },
+    {
+      "id": "exact-rounded-environment-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Fresh native and browser JSON hashes both equal 65b0116747ece91b15fc02a83ccfd29b4a8b297f4a2208f1b9e8a7a22630ba30; SVG hashes both equal 00103844f830d4013678f3986932fce0cf88722a83495353674864d55b983db4."
+      ]
+    },
+    {
+      "id": "calibration-physical-and-unit-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "A reported 2,882 dies at 150 mm diameter exceeded the physical area bound; redundant area, dimension basis, and scribe units were also checked."
+      ]
+    },
+    {
+      "id": "calibration-target-and-provenance-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Yield-adjusted targets, ambiguous counts, pre-shrink dimensions, wrong shape policy, non-opaque identifiers, reused sources, and grouped holdout leakage were rejected."
+      ]
+    },
+    {
+      "id": "calibration-coefficient-quarantine",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "The default minimum is 12 independent project/source groups; an 11-project candidate emitted no recommendation and null coefficients."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R7-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Scenario comparison has no retained baseline or explicit delta",
+      "evidence": [
+        "Deterministic JSON allows manual comparison, but the current application does not retain two named scenarios side by side."
+      ]
+    },
+    {
+      "id": "R7-002",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "The supplied 150 mm wafer label was physically incompatible with the reported Gross counts",
+      "evidence": [
+        "The validator rejects the counts at 150 mm diameter, the application consistently labels nominal diameter, and no coefficient was fitted from the ambiguous records."
+      ]
+    },
+    {
+      "id": "R7-003",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "One-decimal yield values were incorrectly treated as proof of a Poisson model",
+      "evidence": [
+        "Poisson and Murphy round to the same displayed examples; the application now names the selected model and exposes its formula and exact values."
+      ]
+    },
+    {
+      "id": "R7-004",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "The README screenshot showed the obsolete four-card workspace",
+      "evidence": [
+        "The new 1600x900 attachment preserves the old left-workspace/right-report composition, matches the current v0.2.0 UI, and keeps the old attachment in Issue 1."
+      ]
+    }
+  ]
+}
