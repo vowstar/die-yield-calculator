@@ -12,8 +12,24 @@ permissions:
   contents: read
 
 jobs:
+  verify-tag:
+    name: Verify release version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Match tag to Cargo version
+        shell: bash
+        run: |
+          release_version="$(awk -F '"' '/^version = / {print $2; exit}' Cargo.toml)"
+          if [[ "${GITHUB_REF_NAME}" != "v${release_version}" ]]; then
+            echo "tag ${GITHUB_REF_NAME} does not match Cargo version ${release_version}" >&2
+            exit 1
+          fi
+
   native:
     name: Build ${{ matrix.asset_suffix }}
+    needs: verify-tag
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -83,6 +99,7 @@ jobs:
 
   web:
     name: Build WebAssembly bundle
+    needs: verify-tag
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
