@@ -1,6 +1,6 @@
 use crate::{
     DieClass, DiePlacement, FabricationInputs, ProbeSummary, ValidationErrors, WaferAnalysis,
-    YieldSummary, model::ValidatedInputs, validation::validate,
+    YieldModel, YieldSummary, model::ValidatedInputs, validation::validate,
 };
 use std::{collections::BTreeSet, ops::RangeInclusive};
 
@@ -9,13 +9,20 @@ pub fn analyze(inputs: &FabricationInputs) -> Result<WaferAnalysis, ValidationEr
     let validated = validate(inputs)?;
     let mut placements = build_grid(&validated);
     let geometric_usable = count_class(&placements, DieClass::Usable);
-    let yield_fraction = murphy_yield(
-        validated.inputs.die.width_mm * validated.inputs.die.height_mm,
+    let yield_area_mm2 = validated.inputs.die.width_mm * validated.inputs.die.height_mm;
+    let defect_exposure = yield_area_mm2 / 100.0 * validated.inputs.process.defect_density_cm2;
+    let yield_fraction = calculate_yield(
+        validated.inputs.process.yield_model,
+        yield_area_mm2,
         validated.inputs.process.defect_density_cm2,
+        validated.inputs.process.clustering_alpha,
     );
-    let expected_defective = ((geometric_usable as f64) * (1.0 - yield_fraction))
+    let expected_good_exact = geometric_usable as f64 * yield_fraction;
+    let expected_defective_exact = geometric_usable as f64 * (1.0 - yield_fraction);
+    let expected_good = expected_good_exact
         .round()
         .clamp(0.0, geometric_usable as f64) as u64;
+    let expected_defective = geometric_usable - expected_good;
 
     mark_expected_defects(
         &mut placements,
@@ -26,8 +33,12 @@ pub fn analyze(inputs: &FabricationInputs) -> Result<WaferAnalysis, ValidationEr
     let probe = summarize_probe(&validated, &placements);
     let summary = YieldSummary {
         yield_fraction,
+        yield_area_mm2,
+        defect_exposure,
         geometric_usable,
-        expected_good: geometric_usable - expected_defective,
+        expected_good_exact,
+        expected_defective_exact,
+        expected_good,
         expected_defective,
         partial: count_class(&placements, DieClass::Partial),
         edge_excluded: count_class(&placements, DieClass::EdgeExclusion),
@@ -41,15 +52,61 @@ pub fn analyze(inputs: &FabricationInputs) -> Result<WaferAnalysis, ValidationEr
     })
 }
 
+/// Calculates random-defect die yield for area in mm² and density in defects/cm².
+///
+/// `clustering_alpha` is used only by [`YieldModel::NegativeBinomial`] and must be
+/// positive and finite for that model. Invalid negative-binomial alpha values
+/// return `NaN`; [`analyze`] rejects them during input validation.
+#[must_use]
+pub fn calculate_yield(
+    model: YieldModel,
+    die_area_mm2: f64,
+    defect_density_cm2: f64,
+    clustering_alpha: f64,
+) -> f64 {
+    let exposure = die_area_mm2 / 100.0 * defect_density_cm2;
+    let yield_fraction = match model {
+        YieldModel::Poisson => (-exposure).exp(),
+        YieldModel::MurphyTriangular => murphy_from_exposure(exposure),
+        YieldModel::Seeds => 1.0 / (1.0 + exposure),
+        YieldModel::NegativeBinomial => {
+            if !clustering_alpha.is_finite() || clustering_alpha <= 0.0 {
+                return f64::NAN;
+            }
+            if exposure == 0.0 {
+                return 1.0;
+            }
+
+            let ratio = exposure / clustering_alpha;
+            let log_base = if ratio.is_infinite() {
+                exposure.ln() - clustering_alpha.ln()
+            } else {
+                ratio.ln_1p()
+            };
+            (-clustering_alpha * log_base).exp()
+        }
+    };
+
+    yield_fraction.clamp(0.0, 1.0)
+}
+
 /// Returns Murphy-model yield for die area in mm² and density in defects/cm².
 #[must_use]
 pub fn murphy_yield(die_area_mm2: f64, defect_density_cm2: f64) -> f64 {
-    let exposure = die_area_mm2 / 100.0 * defect_density_cm2;
+    calculate_yield(
+        YieldModel::MurphyTriangular,
+        die_area_mm2,
+        defect_density_cm2,
+        1.0,
+    )
+}
+
+fn murphy_from_exposure(exposure: f64) -> f64 {
     if exposure.abs() < 1.0e-12 {
         return 1.0;
     }
 
-    (-(-exposure).exp_m1() / exposure).powi(2).clamp(0.0, 1.0)
+    (-(-exposure).exp_m1() / exposure).powi(2)
 }
 
 fn build_grid(validated: &ValidatedInputs) -> Vec<DiePlacement> {
@@ -261,6 +318,13 @@ mod tests {
     use super::*;
     use crate::InputField;
 
+    fn assert_close(actual: f64, expected: f64, tolerance: f64) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "expected {expected:.16}, got {actual:.16}"
+        );
+    }
+
     #[test]
     fn default_analysis_is_self_consistent() {
         let analysis = analyze(&FabricationInputs::default()).expect("defaults should be valid");
@@ -270,7 +334,23 @@ mod tests {
         assert_eq!(analysis.summary.expected_defective, 59);
         assert_eq!(analysis.summary.partial, 124);
         assert_eq!(analysis.summary.edge_excluded, 40);
-        assert!((analysis.summary.yield_fraction - 0.923_608_780_146_839_3).abs() < 1e-12);
+        assert_close(
+            analysis.summary.yield_fraction,
+            0.923_608_780_146_839_3,
+            1e-12,
+        );
+        assert_eq!(analysis.summary.yield_area_mm2, 80.0);
+        assert_close(analysis.summary.defect_exposure, 0.08, f64::EPSILON);
+        assert_close(
+            analysis.summary.expected_good_exact,
+            708.407_934_372_625_7,
+            1e-12,
+        );
+        assert_close(
+            analysis.summary.expected_defective_exact,
+            58.592_065_627_374_225,
+            1e-12,
+        );
         assert_eq!(
             analysis.summary.expected_good + analysis.summary.expected_defective,
             analysis.summary.geometric_usable
@@ -297,6 +377,26 @@ mod tests {
                 .iter()
                 .all(|placement| !placement.defective)
         );
+    }
+
+    #[test]
+    fn displayed_good_count_rounds_the_good_expectation_at_a_half_tie() {
+        let mut inputs = FabricationInputs::default();
+        inputs.wafer.diameter_mm = 25.0;
+        inputs.wafer.edge_exclusion_mm = 0.0;
+        inputs.die.width_mm = 10.0;
+        inputs.die.height_mm = 10.0;
+        inputs.die.column_lane_mm = 0.1;
+        inputs.die.row_lane_mm = 0.1;
+        inputs.process.yield_model = YieldModel::Poisson;
+        inputs.process.defect_density_cm2 = std::f64::consts::LN_2;
+
+        let analysis = analyze(&inputs).expect("half-yield fixture should be valid");
+
+        assert_eq!(analysis.summary.geometric_usable, 1);
+        assert_close(analysis.summary.expected_good_exact, 0.5, 1.0e-15);
+        assert_eq!(analysis.summary.expected_good, 1);
+        assert_eq!(analysis.summary.expected_defective, 0);
     }
 
     #[test]
@@ -353,6 +453,103 @@ mod tests {
         let high = murphy_yield(80.0, 1.0);
         assert!((0.0..1.0).contains(&low));
         assert!(high < low);
+    }
+
+    #[test]
+    fn yield_models_match_independent_unit_exposure_oracles() {
+        // 100 mm² = 1 cm², so D0 = 1 gives the dimensionless exposure AD0 = 1.
+        let cases = [
+            (YieldModel::Poisson, 1.0, 0.367_879_441_171_442_33),
+            (YieldModel::MurphyTriangular, 1.0, 0.399_576_400_893_728_03),
+            (YieldModel::Seeds, 1.0, 0.5),
+            (YieldModel::NegativeBinomial, 2.0, 0.444_444_444_444_444_4),
+        ];
+
+        for (model, alpha, expected) in cases {
+            assert_close(calculate_yield(model, 100.0, 1.0, alpha), expected, 1e-15);
+        }
+    }
+
+    #[test]
+    fn selected_model_flows_into_summary_without_changing_geometry() {
+        let default = analyze(&FabricationInputs::default()).expect("defaults should be valid");
+        let mut poisson_inputs = FabricationInputs::default();
+        poisson_inputs.process.yield_model = YieldModel::Poisson;
+        poisson_inputs.process.clustering_alpha = f64::NAN;
+        let poisson = analyze(&poisson_inputs).expect("Poisson does not require alpha");
+
+        assert_eq!(poisson.summary.geometric_usable, 767);
+        assert_eq!(poisson.summary.yield_area_mm2, 80.0);
+        assert_close(poisson.summary.defect_exposure, 0.08, f64::EPSILON);
+        assert_close(
+            poisson.summary.yield_fraction,
+            0.923_116_346_386_635_8,
+            1e-15,
+        );
+        assert!(poisson.summary.yield_fraction < default.summary.yield_fraction);
+    }
+
+    #[test]
+    fn all_yield_models_have_the_correct_zero_and_high_exposure_limits() {
+        for model in [
+            YieldModel::Poisson,
+            YieldModel::MurphyTriangular,
+            YieldModel::Seeds,
+            YieldModel::NegativeBinomial,
+        ] {
+            assert_eq!(calculate_yield(model, 80.0, 0.0, 2.0), 1.0);
+            let high = calculate_yield(model, 100.0, 100.0, 2.0);
+            assert!(high.is_finite());
+            assert!((0.0..=1.0).contains(&high));
+        }
+    }
+
+    #[test]
+    fn all_yield_models_are_stable_near_zero_and_monotonic() {
+        for model in [
+            YieldModel::Poisson,
+            YieldModel::MurphyTriangular,
+            YieldModel::Seeds,
+            YieldModel::NegativeBinomial,
+        ] {
+            let near_zero = calculate_yield(model, 1.0e-6, 1.0e-6, 2.0);
+            assert!(near_zero.is_finite());
+            assert!((1.0 - 1.0e-12..=1.0).contains(&near_zero));
+
+            let mut previous = 1.0;
+            for density in [0.0, 0.01, 0.1, 1.0, 10.0, 100.0] {
+                let current = calculate_yield(model, 100.0, density, 2.0);
+                assert!(current <= previous, "{model:?} at D0={density}");
+                previous = current;
+            }
+        }
+    }
+
+    #[test]
+    fn negative_binomial_contains_seeds_and_converges_to_poisson() {
+        let area_mm2 = 80.0;
+        let density_cm2 = 1.0;
+        let seeds = calculate_yield(YieldModel::Seeds, area_mm2, density_cm2, f64::NAN);
+        let alpha_one = calculate_yield(YieldModel::NegativeBinomial, area_mm2, density_cm2, 1.0);
+        let poisson = calculate_yield(YieldModel::Poisson, area_mm2, density_cm2, f64::NAN);
+        let large_alpha =
+            calculate_yield(YieldModel::NegativeBinomial, area_mm2, density_cm2, 1.0e12);
+
+        assert_close(alpha_one, seeds, f64::EPSILON);
+        assert_close(large_alpha, poisson, 2.0e-13);
+        assert!(
+            calculate_yield(YieldModel::NegativeBinomial, area_mm2, density_cm2, 0.0,).is_nan()
+        );
+    }
+
+    #[test]
+    fn murphy_compatibility_wrapper_uses_the_general_model() {
+        for (area, density) in [(0.25, 0.0), (22.64, 0.1), (31.63, 0.2), (80.0, 5.0)] {
+            assert_eq!(
+                murphy_yield(area, density),
+                calculate_yield(YieldModel::MurphyTriangular, area, density, f64::NAN)
+            );
+        }
     }
 
     #[test]
@@ -450,5 +647,24 @@ mod tests {
             Some(DieClass::EdgeExclusion)
         );
         assert_eq!(classify_rectangle(11.0, 0.0, 0.2, 0.2, 10.0, 8.0), None);
+    }
+
+    #[test]
+    fn rectangle_classification_includes_exact_circle_tangencies() {
+        assert_eq!(
+            classify_rectangle(0.0, 0.0, 6.0, 8.0, 12.0, 10.0),
+            Some(DieClass::Usable),
+            "a farthest corner exactly on the usable circle is included"
+        );
+        assert_eq!(
+            classify_rectangle(9.0, 0.0, 1.0, 1.0, 12.0, 8.0),
+            Some(DieClass::Partial),
+            "a rectangle tangent to the usable circle intersects its boundary"
+        );
+        assert_eq!(
+            classify_rectangle(10.25, 0.0, 0.25, 0.25, 10.0, 8.0),
+            Some(DieClass::EdgeExclusion),
+            "a rectangle tangent to the outer circle remains mapped"
+        );
     }
 }

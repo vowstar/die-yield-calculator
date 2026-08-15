@@ -28,12 +28,37 @@ pub struct WaferGeometry {
 pub struct ProcessSettings {
     /// Random defect density per square centimetre.
     pub defect_density_cm2: f64,
+    /// Random-defect yield model.
+    #[serde(default)]
+    pub yield_model: YieldModel,
+    /// Defect-clustering parameter used by the negative-binomial model.
+    #[serde(default = "default_clustering_alpha")]
+    pub clustering_alpha: f64,
     /// Horizontal grid offset in millimetres.
     pub offset_x_mm: f64,
     /// Vertical grid offset in millimetres.
     pub offset_y_mm: f64,
     /// Whether one die is centered on the wafer origin.
     pub die_at_origin: bool,
+}
+
+const fn default_clustering_alpha() -> f64 {
+    1.0
+}
+
+/// Statistical model used to estimate random-defect die yield.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum YieldModel {
+    /// Independent, uniformly distributed random defects.
+    Poisson,
+    /// Murphy's triangular defect-density distribution.
+    #[default]
+    MurphyTriangular,
+    /// Seeds' clustered-defect approximation.
+    Seeds,
+    /// Gamma-Poisson mixture controlled by a positive clustering parameter.
+    NegativeBinomial,
 }
 
 /// Rectangular probe array dimensions.
@@ -73,6 +98,8 @@ impl Default for FabricationInputs {
             },
             process: ProcessSettings {
                 defect_density_cm2: 0.1,
+                yield_model: YieldModel::default(),
+                clustering_alpha: default_clustering_alpha(),
                 offset_x_mm: 0.0,
                 offset_y_mm: 0.0,
                 die_at_origin: true,
@@ -102,6 +129,8 @@ pub enum InputField {
     EdgeExclusion,
     /// Defect density.
     DefectDensity,
+    /// Negative-binomial clustering parameter.
+    ClusteringAlpha,
     /// Horizontal grid offset.
     OffsetX,
     /// Vertical grid offset.
@@ -126,6 +155,7 @@ impl InputField {
             Self::WaferDiameter => "wafer diameter",
             Self::EdgeExclusion => "edge exclusion",
             Self::DefectDensity => "defect density",
+            Self::ClusteringAlpha => "clustering alpha",
             Self::OffsetX => "horizontal offset",
             Self::OffsetY => "vertical offset",
             Self::ProbeColumns => "probe columns",
@@ -203,10 +233,18 @@ pub struct DiePlacement {
 /// Aggregate geometric and statistical die counts.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct YieldSummary {
-    /// Murphy-model yield in the inclusive range zero to one.
+    /// Selected-model yield in the inclusive range zero to one.
     pub yield_fraction: f64,
+    /// Active die area used by the random-defect model in square millimetres.
+    pub yield_area_mm2: f64,
+    /// Dimensionless defect exposure, active area in cm² multiplied by D0.
+    pub defect_exposure: f64,
     /// Complete dies inside the usable radius before statistical defects.
     pub geometric_usable: u64,
+    /// Unrounded expected good-die count.
+    pub expected_good_exact: f64,
+    /// Unrounded expected defective-die count.
+    pub expected_defective_exact: f64,
     /// Expected good dies after statistical defects.
     pub expected_good: u64,
     /// Expected defective dies.

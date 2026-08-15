@@ -4,8 +4,9 @@ mod analysis;
 mod model;
 mod validation;
 
-pub use analysis::{analyze, murphy_yield};
+pub use analysis::{analyze, calculate_yield, murphy_yield};
 pub use model::{
     DieClass, DieGeometry, DiePlacement, FabricationInputs, InputField, ProbeArray, ProbeSummary,
-    ProcessSettings, ValidationError, ValidationErrors, WaferAnalysis, WaferGeometry, YieldSummary,
+    ProcessSettings, ValidationError, ValidationErrors, WaferAnalysis, WaferGeometry, YieldModel,
+    YieldSummary,
 };

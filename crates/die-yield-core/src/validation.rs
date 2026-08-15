@@ -1,5 +1,6 @@
 use crate::{
-    FabricationInputs, InputField, ValidationError, ValidationErrors, model::ValidatedInputs,
+    FabricationInputs, InputField, ValidationError, ValidationErrors, YieldModel,
+    model::ValidatedInputs,
 };
 
 const MIN_DIE_MM: f64 = 0.25;
@@ -61,6 +62,14 @@ pub(crate) fn validate(inputs: &FabricationInputs) -> Result<ValidatedInputs, Va
         MAX_DEFECT_DENSITY,
         "must be between 0 and 100 defects/cm²",
     );
+    if inputs.process.yield_model == YieldModel::NegativeBinomial {
+        check_positive_finite(
+            &mut errors,
+            InputField::ClusteringAlpha,
+            inputs.process.clustering_alpha,
+            "must be a positive finite number for the negative-binomial model",
+        );
+    }
     check_finite(&mut errors, InputField::OffsetX, inputs.process.offset_x_mm);
     check_finite(&mut errors, InputField::OffsetY, inputs.process.offset_y_mm);
     check_integer_range(&mut errors, InputField::ProbeColumns, inputs.probe.columns);
@@ -131,6 +140,17 @@ fn check_finite(errors: &mut Vec<ValidationError>, field: InputField, value: f64
     }
 }
 
+fn check_positive_finite(
+    errors: &mut Vec<ValidationError>,
+    field: InputField,
+    value: f64,
+    message: &'static str,
+) {
+    if !value.is_finite() || value <= 0.0 {
+        errors.push(ValidationError { field, message });
+    }
+}
+
 fn check_integer_range(errors: &mut Vec<ValidationError>, field: InputField, value: u32) {
     if !(1..=MAX_PROBE_SPAN).contains(&value) {
         errors.push(ValidationError {
@@ -179,5 +199,34 @@ mod tests {
 
         let errors = validate(&inputs).expect_err("grid should exceed the safety limit");
         assert_eq!(errors.as_slice()[0].field, InputField::GridDensity);
+    }
+
+    #[test]
+    fn clustering_alpha_is_validated_only_for_negative_binomial() {
+        for invalid_alpha in [0.0, -1.0, f64::INFINITY, f64::NAN] {
+            let mut inputs = FabricationInputs::default();
+            inputs.process.yield_model = YieldModel::NegativeBinomial;
+            inputs.process.clustering_alpha = invalid_alpha;
+
+            let errors = validate(&inputs).expect_err("invalid alpha should be rejected");
+            assert!(
+                errors
+                    .as_slice()
+                    .iter()
+                    .any(|error| error.field == InputField::ClusteringAlpha)
+            );
+        }
+
+        for model in [
+            YieldModel::Poisson,
+            YieldModel::MurphyTriangular,
+            YieldModel::Seeds,
+        ] {
+            let mut inputs = FabricationInputs::default();
+            inputs.process.yield_model = model;
+            inputs.process.clustering_alpha = f64::NAN;
+
+            validate(&inputs).expect("unused alpha should not invalidate the setup");
+        }
     }
 }
