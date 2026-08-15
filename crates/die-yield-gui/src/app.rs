@@ -1,5 +1,7 @@
 use crate::{delivery, report, theme};
-use die_yield_core::{FabricationInputs, ValidationErrors, WaferAnalysis, analyze};
+use die_yield_core::{
+    FabricationInputs, InputField, ValidationErrors, WaferAnalysis, YieldModel, analyze,
+};
 use die_yield_render::{MIN_VISIBLE_SCRIBE_POINTS, WaferPalette, WaferScene, paint_wafer};
 use eframe::egui;
 use egui::{Align, Color32, Layout, Margin, RichText, Stroke, vec2};
@@ -36,6 +38,12 @@ struct ReportNotice {
     message: String,
 }
 
+#[derive(Debug, Default)]
+struct NumericFocusState {
+    restore: Option<InputField>,
+    sync_buffer: Option<InputField>,
+}
+
 /// Interactive die-yield workbench shared by native and browser builds.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -51,6 +59,8 @@ pub struct YieldWorkbench {
     report_open: bool,
     #[serde(skip)]
     report_notice: Option<ReportNotice>,
+    #[serde(skip)]
+    numeric_focus: NumericFocusState,
 }
 
 impl Default for YieldWorkbench {
@@ -63,6 +73,7 @@ impl Default for YieldWorkbench {
             validation: None,
             report_open: false,
             report_notice: None,
+            numeric_focus: NumericFocusState::default(),
         };
         workbench.recalculate();
         workbench
@@ -83,15 +94,18 @@ impl YieldWorkbench {
     }
 
     fn recalculate(&mut self) {
+        let was_invalid = self.validation.is_some();
         match analyze(&self.inputs) {
             Ok(analysis) => {
                 self.analysis = Some(analysis);
                 self.validation = None;
             }
             Err(errors) => {
-                self.analysis = None;
                 self.validation = Some(errors);
             }
+        }
+        if was_invalid != self.validation.is_some() {
+            self.numeric_focus.sync_buffer = self.numeric_focus.restore;
         }
     }
 
@@ -127,10 +141,9 @@ impl YieldWorkbench {
 
     fn show_workspace(&mut self, ui: &mut egui::Ui) {
         let wide = ui.available_width() >= WIDE_LAYOUT_THRESHOLD;
-        self.show_summary(ui, wide);
-        ui.add_space(8.0);
-
         if wide {
+            self.show_summary(ui, true);
+            ui.add_space(8.0);
             let available = ui.available_width();
             let settings_width = (available * 0.37).clamp(340.0, 430.0);
             let visual_width = available - settings_width - 16.0;
@@ -148,46 +161,53 @@ impl YieldWorkbench {
                 );
             });
         } else {
-            self.show_visual_card(ui);
-            ui.add_space(6.0);
+            self.show_summary(ui, false);
+            ui.add_space(8.0);
             self.show_settings_card(ui);
+            ui.add_space(6.0);
+            self.show_visual_card(ui);
         }
     }
 
     fn show_summary(&self, ui: &mut egui::Ui, wide: bool) {
         let Some(analysis) = self.analysis.as_ref() else {
-            self.show_validation(ui);
+            unavailable_results(ui);
             return;
         };
+        if self.validation.is_some() {
+            paused_results_notice(ui);
+            ui.add_space(8.0);
+        }
         let summary = analysis.summary;
-        let values: [(&str, String, String, Color32); 4] = [
+        let values: [(&str, String, String, Color32); 3] = [
             (
-                "MODEL YIELD",
-                format!("{:.2}%", summary.yield_fraction * 100.0),
-                "Murphy estimate".to_owned(),
-                theme::ACCENT,
-            ),
-            (
-                "EXPECTED GOOD",
-                format_integer(summary.expected_good),
-                format!("of {} usable", format_integer(summary.geometric_usable)),
+                "GROSS DIES / WAFER",
+                format_integer(summary.geometric_usable),
+                "Complete sites before modeled defects".to_owned(),
                 theme::BLUE,
             ),
             (
-                "DIE LOSS",
-                format_integer(summary.expected_defective),
-                format!("{} boundary sites", format_integer(summary.partial)),
-                theme::CORAL,
+                "ESTIMATED DIE YIELD",
+                format!("{:.2}%", summary.yield_fraction * 100.0),
+                format!(
+                    "{} model",
+                    yield_model_label(analysis.normalized_inputs.process.yield_model)
+                ),
+                theme::ACCENT,
             ),
             (
-                "TOUCHDOWNS",
-                format_integer(analysis.probe.touchdown_count),
-                format!("{} sites per step", analysis.probe.sites_per_touchdown),
-                theme::AMBER,
+                "EXPECTED GOOD / WAFER",
+                format!("≈{}", format_integer(summary.expected_good)),
+                format!(
+                    "{} gross × full-precision yield = {:.3}",
+                    format_integer(summary.geometric_usable),
+                    summary.expected_good_exact
+                ),
+                theme::CORAL,
             ),
         ];
 
-        let columns = if wide { 4 } else { 2 };
+        let columns = if wide { 3 } else { 1 };
         let width = (ui.available_width() - 12.0 * (columns as f32 - 1.0)) / columns as f32;
         for row in values.chunks(columns) {
             ui.horizontal(|ui| {
@@ -203,27 +223,50 @@ impl YieldWorkbench {
                 }
             });
         }
+        ui.add_space(8.0);
+        summary_scope_note(ui, &summary);
     }
 
     fn show_visual_card(&self, ui: &mut egui::Ui) {
+        let displayed_diameter_mm = self
+            .analysis
+            .as_ref()
+            .map_or(self.inputs.wafer.diameter_mm, |analysis| {
+                analysis.normalized_inputs.wafer.diameter_mm
+            });
         card().show(ui, |ui| {
-            ui.horizontal(|ui| {
+            let heading = |ui: &mut egui::Ui| {
                 ui.vertical(|ui| {
                     ui.label(RichText::new("Wafer map").size(18.0).strong());
                     ui.label(
-                        RichText::new("Geometric placement and modeled process loss")
+                        RichText::new("Geometric placement with illustrative random loss")
                             .small()
                             .color(theme::TEXT_MUTED),
                     );
                 });
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            };
+            if ui.available_width() < 480.0 {
+                ui.vertical(|ui| {
+                    heading(ui);
+                    ui.add_space(6.0);
                     pill(
                         ui,
-                        &format!("Ø {}", wafer_size_label(self.inputs.wafer.diameter_mm)),
+                        &format!("Ø {}", wafer_size_label(displayed_diameter_mm)),
                         theme::BLUE,
                     );
                 });
-            });
+            } else {
+                ui.horizontal(|ui| {
+                    heading(ui);
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        pill(
+                            ui,
+                            &format!("Ø {}", wafer_size_label(displayed_diameter_mm)),
+                            theme::BLUE,
+                        );
+                    });
+                });
+            }
             ui.add_space(12.0);
 
             if let Some(analysis) = &self.analysis {
@@ -235,24 +278,33 @@ impl YieldWorkbench {
                 });
                 ui.add_space(8.0);
                 ui.horizontal_wrapped(|ui| {
-                    legend(ui, "Expected good", palette.productive);
-                    legend(ui, "Modeled loss", palette.defective);
-                    legend(ui, "Boundary", palette.boundary);
+                    legend(ui, "Gross die", palette.productive);
+                    legend(ui, "Illustrative loss", palette.defective);
+                    legend(ui, "Partial boundary", palette.boundary);
                     legend(ui, "Edge band", palette.excluded);
                     legend(ui, "Scribe lane", palette.scribe);
                 });
                 ui.add_space(4.0);
                 ui.label(
                     RichText::new(format!(
-                        "{} mapped sites  •  {:.2} mm² active area  •  scribe shown at ≥{MIN_VISIBLE_SCRIBE_POINTS:.2} pt",
-                        format_integer(scene.cells.len() as u64),
-                        self.inputs.die.width_mm * self.inputs.die.height_mm
+                        "{} gross  •  {} partial  •  {} edge-band  •  {:.4} mm² active area",
+                        format_integer(analysis.summary.geometric_usable),
+                        format_integer(analysis.summary.partial),
+                        format_integer(analysis.summary.edge_excluded),
+                        analysis.summary.yield_area_mm2
+                    ))
+                    .small()
+                    .color(theme::TEXT_MUTED),
+                );
+                ui.label(
+                    RichText::new(format!(
+                        "Loss locations are illustrative, not predicted. Scribe is shown at ≥{MIN_VISIBLE_SCRIBE_POINTS:.2} pt; the notch marker is not subtracted from geometry."
                     ))
                     .small()
                     .color(theme::TEXT_MUTED),
                 );
             } else {
-                self.show_validation(ui);
+                unavailable_results(ui);
             }
         });
     }
@@ -260,15 +312,17 @@ impl YieldWorkbench {
     fn show_settings_card(&mut self, ui: &mut egui::Ui) {
         let before = self.inputs;
         card().show(ui, |ui| {
-            ui.label(RichText::new("Process setup").size(18.0).strong());
+            ui.label(RichText::new("Calculation setup").size(18.0).strong());
             auto_update_note(ui);
+            example_setup_notice(ui);
+
             ui.add_space(12.0);
 
-            section_heading(ui, "WAFER", SectionGlyph::Wafer);
+            section_heading(ui, "ESSENTIALS", SectionGlyph::Wafer);
             ui.horizontal_wrapped(|ui| {
                 for diameter in WAFER_PRESETS_MM {
                     let selected = (self.inputs.wafer.diameter_mm - diameter).abs() < f64::EPSILON;
-                    if ui
+                    let response = ui
                         .add(
                             egui::Button::new(wafer_size_label(diameter))
                                 .selected(selected)
@@ -277,17 +331,16 @@ impl YieldWorkbench {
                         .on_hover_text(format!(
                             "Set wafer diameter to {}",
                             wafer_size_label(diameter)
-                        ))
-                        .clicked()
-                    {
+                        ));
+                    keep_focused_visible(&response);
+                    if response.clicked() {
                         self.inputs.wafer.diameter_mm = diameter;
-                        self.inputs.wafer.edge_exclusion_mm =
-                            self.inputs.wafer.edge_exclusion_mm.min(diameter * 0.1);
                     }
                 }
             });
-            input_row_f64(
+            input_row_f64_with_precision(
                 ui,
+                InputField::WaferDiameter,
                 &format!(
                     "Diameter ({})",
                     wafer_inches_label(self.inputs.wafer.diameter_mm)
@@ -296,115 +349,330 @@ impl YieldWorkbench {
                 25.0..=450.0,
                 1.0,
                 " mm",
+                3,
+                &mut self.numeric_focus,
             );
-            input_row_f64(
-                ui,
-                "Edge exclusion",
-                &mut self.inputs.wafer.edge_exclusion_mm,
-                0.0..=100.0,
-                0.1,
-                " mm",
-            );
-
-            section_divider(ui);
+            self.show_field_error(ui, InputField::WaferDiameter);
             ui.horizontal(|ui| {
-                section_heading(ui, "DIE & SCRIBE", SectionGlyph::DieGrid);
+                ui.label(
+                    RichText::new("Active die dimensions")
+                        .color(theme::TEXT_MUTED),
+                )
+                .on_hover_text(
+                    "Finished active dimensions used for random-defect yield. Scribe is entered separately.",
+                );
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.toggle_value(&mut self.lock_die_ratio, "Lock ratio")
+                    let response = ui
+                        .toggle_value(&mut self.lock_die_ratio, "Lock ratio")
                         .on_hover_text("Preserve the current die aspect ratio");
+                    keep_focused_visible(&response);
                 });
             });
             let old_width = self.inputs.die.width_mm;
             let old_height = self.inputs.die.height_mm;
-            let width_changed = input_row_f64(
+            let width_changed = input_row_f64_with_precision(
                 ui,
+                InputField::DieWidth,
                 "Active width",
                 &mut self.inputs.die.width_mm,
                 0.25..=450.0,
-                0.1,
+                0.001,
                 " mm",
+                6,
+                &mut self.numeric_focus,
             );
             if width_changed && self.lock_die_ratio && old_width > 0.0 {
                 self.inputs.die.height_mm = old_height * self.inputs.die.width_mm / old_width;
             }
-            let height_changed = input_row_f64(
+            self.show_field_error(ui, InputField::DieWidth);
+            let height_changed = input_row_f64_with_precision(
                 ui,
+                InputField::DieHeight,
                 "Active height",
                 &mut self.inputs.die.height_mm,
                 0.25..=450.0,
-                0.1,
+                0.001,
                 " mm",
+                6,
+                &mut self.numeric_focus,
             );
             if height_changed && self.lock_die_ratio && old_height > 0.0 {
                 self.inputs.die.width_mm = old_width * self.inputs.die.height_mm / old_height;
             }
-            let column_changed = input_row_f64(
+            self.show_field_error(ui, InputField::DieHeight);
+            input_row_f64_with_precision(
                 ui,
-                "Column lane",
-                &mut self.inputs.die.column_lane_mm,
-                0.0..=10.0,
-                0.01,
-                " mm",
-            );
-            if column_changed && self.link_scribe_lanes {
-                self.inputs.die.row_lane_mm = self.inputs.die.column_lane_mm;
-            }
-            let row_changed = input_row_f64(
-                ui,
-                "Row lane",
-                &mut self.inputs.die.row_lane_mm,
-                0.0..=10.0,
-                0.01,
-                " mm",
-            );
-            if row_changed && self.link_scribe_lanes {
-                self.inputs.die.column_lane_mm = self.inputs.die.row_lane_mm;
-            }
-            ui.checkbox(&mut self.link_scribe_lanes, "Link scribe lanes");
-
-            section_divider(ui);
-            section_heading(ui, "PROCESS & ALIGNMENT", SectionGlyph::Alignment);
-            input_row_f64(
-                ui,
-                "Defect density",
+                InputField::DefectDensity,
+                "Defect density (D₀)",
                 &mut self.inputs.process.defect_density_cm2,
                 0.0..=100.0,
-                0.01,
+                0.001,
                 " /cm²",
+                6,
+                &mut self.numeric_focus,
             );
-            input_row_f64(
-                ui,
-                "Horizontal phase",
-                &mut self.inputs.process.offset_x_mm,
-                -450.0..=450.0,
-                0.05,
-                " mm",
-            );
-            input_row_f64(
-                ui,
-                "Vertical phase",
-                &mut self.inputs.process.offset_y_mm,
-                -450.0..=450.0,
-                0.05,
-                " mm",
-            );
-            ui.checkbox(
-                &mut self.inputs.process.die_at_origin,
-                "Center a die at wafer origin",
-            );
+            self.show_field_error(ui, InputField::DefectDensity);
+            yield_model_row(ui, &mut self.inputs.process.yield_model);
 
             section_divider(ui);
-            section_heading(ui, "PROBE ARRAY", SectionGlyph::ProbeArray);
-            input_row_u32(
-                ui,
-                "Columns per step",
-                &mut self.inputs.probe.columns,
-                1..=128,
-            );
-            input_row_u32(ui, "Rows per step", &mut self.inputs.probe.rows, 1..=128);
+            let manufacturing_header = egui::CollapsingHeader::new(format!(
+                "Manufacturing geometry · {:.3} mm edge · {:.1}/{:.1} μm scribe",
+                self.inputs.wafer.edge_exclusion_mm,
+                self.inputs.die.column_lane_mm * 1_000.0,
+                self.inputs.die.row_lane_mm * 1_000.0
+            ))
+            .id_salt("manufacturing_geometry")
+            .default_open(false)
+            .show(ui, |ui| {
+                section_heading(ui, "FOOTPRINT INPUTS", SectionGlyph::DieGrid);
+                input_row_f64_with_precision(
+                    ui,
+                    InputField::EdgeExclusion,
+                    "Radial edge exclusion",
+                    &mut self.inputs.wafer.edge_exclusion_mm,
+                    0.0..=100.0,
+                    0.01,
+                    " mm",
+                    6,
+                    &mut self.numeric_focus,
+                );
+                self.show_field_error(ui, InputField::EdgeExclusion);
+                let column_changed = input_row_micrometres(
+                    ui,
+                    InputField::ColumnLane,
+                    "Column scribe",
+                    &mut self.inputs.die.column_lane_mm,
+                    &mut self.numeric_focus,
+                );
+                if column_changed && self.link_scribe_lanes {
+                    self.inputs.die.row_lane_mm = self.inputs.die.column_lane_mm;
+                }
+                self.show_field_error(ui, InputField::ColumnLane);
+                let row_changed = input_row_micrometres(
+                    ui,
+                    InputField::RowLane,
+                    "Row scribe",
+                    &mut self.inputs.die.row_lane_mm,
+                    &mut self.numeric_focus,
+                );
+                if row_changed && self.link_scribe_lanes {
+                    self.inputs.die.column_lane_mm = self.inputs.die.row_lane_mm;
+                }
+                self.show_field_error(ui, InputField::RowLane);
+                let response = ui
+                    .checkbox(&mut self.link_scribe_lanes, "Link X/Y scribes")
+                    .on_hover_text("Keep both scribe-lane widths equal while editing");
+                keep_focused_visible(&response);
+                ui.label(
+                    RichText::new(
+                        "Gross placement uses active dimensions plus scribe pitch. A Gross die is counted only when its complete active rectangle fits inside the usable radius; scribe is spacing, not the boundary footprint. Yield uses active area only.",
+                    )
+                    .small()
+                    .color(theme::TEXT_MUTED),
+                );
+            });
+            keep_focused_visible(&manufacturing_header.header_response);
+
+            section_divider(ui);
+            let yield_header = egui::CollapsingHeader::new(format!(
+                "Yield calculation · {}",
+                yield_model_label(self.inputs.process.yield_model)
+            ))
+            .id_salt("yield_calculation")
+            .default_open(false)
+            .show(ui, |ui| {
+                section_heading(ui, "MODEL DETAILS", SectionGlyph::Alignment);
+                if self.inputs.process.yield_model == YieldModel::NegativeBinomial {
+                    input_row_f64_with_precision(
+                        ui,
+                        InputField::ClusteringAlpha,
+                        "Clustering alpha (α)",
+                        &mut self.inputs.process.clustering_alpha,
+                        f64::MIN_POSITIVE..=1.0e12,
+                        0.1,
+                        "",
+                        6,
+                        &mut self.numeric_focus,
+                    );
+                    self.show_field_error(ui, InputField::ClusteringAlpha);
+                }
+                ui.label(
+                    RichText::new(yield_model_explanation(
+                        self.inputs.process.yield_model,
+                    ))
+                    .small()
+                    .color(theme::TEXT_MUTED),
+                );
+                if let Some(analysis) = &self.analysis {
+                    let summary = analysis.summary;
+                    ui.add_space(4.0);
+                    detail_row(
+                        ui,
+                        "Yield area",
+                        &format!(
+                            "{:.6} mm² = {:.8} cm²",
+                            summary.yield_area_mm2,
+                            summary.yield_area_mm2 / 100.0
+                        ),
+                    );
+                    detail_row(
+                        ui,
+                        "Exposure A·D₀",
+                        &format!("{:.10}", summary.defect_exposure),
+                    );
+                    detail_row(
+                        ui,
+                        "Full-precision yield",
+                        &format!("{:.10}", summary.yield_fraction),
+                    );
+                    detail_row(
+                        ui,
+                        "Unrounded expectation",
+                        &format!("{:.6} good dies", summary.expected_good_exact),
+                    );
+                    ui.label(
+                        RichText::new("The summary rounds the expectation to the nearest whole die.")
+                            .small()
+                            .color(theme::TEXT_MUTED),
+                    );
+                }
+            });
+            keep_focused_visible(&yield_header.header_response);
+
+            section_divider(ui);
+            let alignment_header = egui::CollapsingHeader::new("Grid alignment")
+                .id_salt("grid_alignment")
+                .default_open(false)
+                .show(ui, |ui| {
+                    section_heading(ui, "MANUAL PHASE", SectionGlyph::Alignment);
+                    input_row_f64_with_precision(
+                        ui,
+                        InputField::OffsetX,
+                        "Horizontal phase",
+                        &mut self.inputs.process.offset_x_mm,
+                        -450.0..=450.0,
+                        0.001,
+                        " mm",
+                        6,
+                        &mut self.numeric_focus,
+                    );
+                    self.show_field_error(ui, InputField::OffsetX);
+                    input_row_f64_with_precision(
+                        ui,
+                        InputField::OffsetY,
+                        "Vertical phase",
+                        &mut self.inputs.process.offset_y_mm,
+                        -450.0..=450.0,
+                        0.001,
+                        " mm",
+                        6,
+                        &mut self.numeric_focus,
+                    );
+                    self.show_field_error(ui, InputField::OffsetY);
+                    let response = ui.checkbox(
+                        &mut self.inputs.process.die_at_origin,
+                        "Center a die at wafer origin",
+                    );
+                    keep_focused_visible(&response);
+                    if let Some(analysis) = &self.analysis {
+                        detail_row(
+                            ui,
+                            "Normalized phase",
+                            &format!(
+                                "{:.6} × {:.6} mm",
+                                analysis.normalized_inputs.process.offset_x_mm,
+                                analysis.normalized_inputs.process.offset_y_mm
+                            ),
+                        );
+                    }
+                });
+            keep_focused_visible(&alignment_header.header_response);
+
+            section_divider(ui);
+            let probe_header = egui::CollapsingHeader::new(format!(
+                "Idealized probe estimate · {} × {} sites",
+                self.inputs.probe.columns, self.inputs.probe.rows
+            ))
+            .id_salt("probe_estimate")
+            .default_open(false)
+            .show(ui, |ui| {
+                section_heading(ui, "FIXED GRID", SectionGlyph::ProbeArray);
+                input_row_u32(
+                    ui,
+                    InputField::ProbeColumns,
+                    "Columns per step",
+                    &mut self.inputs.probe.columns,
+                    1..=128,
+                    &mut self.numeric_focus,
+                );
+                self.show_field_error(ui, InputField::ProbeColumns);
+                input_row_u32(
+                    ui,
+                    InputField::ProbeRows,
+                    "Rows per step",
+                    &mut self.inputs.probe.rows,
+                    1..=128,
+                    &mut self.numeric_focus,
+                );
+                self.show_field_error(ui, InputField::ProbeRows);
+                if let Some(analysis) = &self.analysis {
+                    detail_row(
+                        ui,
+                        "Occupied grid blocks",
+                        &format_integer(analysis.probe.touchdown_count),
+                    );
+                }
+                ui.label(
+                    RichText::new(
+                        "Fixed rectangular grid estimate; probe reachability and test time are not modeled.",
+                    )
+                    .small()
+                    .color(theme::TEXT_MUTED),
+                );
+            });
+            keep_focused_visible(&probe_header.header_response);
+
+            if let Some(analysis) = &self.analysis {
+                section_divider(ui);
+                let geometry_header = egui::CollapsingHeader::new("Geometry details")
+                    .id_salt("geometry_details")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        let normalized = analysis.normalized_inputs;
+                        detail_row(
+                            ui,
+                            "Placement pitch",
+                            &format!(
+                                "{:.6} × {:.6} mm",
+                                normalized.die.width_mm + normalized.die.column_lane_mm,
+                                normalized.die.height_mm + normalized.die.row_lane_mm
+                            ),
+                        );
+                        detail_row(
+                            ui,
+                            "Usable diameter",
+                            &format!(
+                                "{:.6} mm",
+                                normalized.wafer.diameter_mm
+                                    - 2.0 * normalized.wafer.edge_exclusion_mm
+                            ),
+                        );
+                        detail_row(
+                            ui,
+                            "Partial boundary sites",
+                            &format_integer(analysis.summary.partial),
+                        );
+                        detail_row(
+                            ui,
+                            "Edge-band sites",
+                            &format_integer(analysis.summary.edge_excluded),
+                        );
+                    });
+                keep_focused_visible(&geometry_header.header_response);
+            }
 
             if self.validation.is_some() {
-                ui.add_space(8.0);
+                section_divider(ui);
                 self.show_validation(ui);
             }
         });
@@ -425,9 +693,16 @@ impl YieldWorkbench {
             .inner_margin(12)
             .show(ui, |ui| {
                 ui.label(
-                    RichText::new("Check the highlighted setup")
+                    RichText::new("Fix the following inputs")
                         .strong()
                         .color(theme::CORAL),
+                );
+                ui.label(
+                    RichText::new(
+                        "Results continue to show the last valid setup until every error is fixed.",
+                    )
+                    .small()
+                    .color(theme::TEXT_MUTED),
                 );
                 for error in errors.as_slice() {
                     ui.label(
@@ -439,13 +714,32 @@ impl YieldWorkbench {
             });
     }
 
+    fn show_field_error(&self, ui: &mut egui::Ui, field: InputField) {
+        let Some(error) = self
+            .validation
+            .as_ref()
+            .and_then(|errors| errors.as_slice().iter().find(|error| error.field == field))
+        else {
+            return;
+        };
+        ui.label(
+            RichText::new(format!(
+                "Error: {} Results remain from the last valid setup.",
+                error.message
+            ))
+            .small()
+            .strong()
+            .color(theme::CORAL),
+        );
+    }
+
     fn show_report_dialog(&mut self, context: &egui::Context) {
         if !self.report_open {
             return;
         }
 
         let mut open = self.report_open;
-        let mut close = false;
+        let mut close = context.input(|input| input.key_pressed(egui::Key::Escape));
         let mut export_format = None;
         let mut print = false;
         let available_width = context.content_rect().width();
@@ -466,68 +760,77 @@ impl YieldWorkbench {
                     ui.label(RichText::new("Export report").size(20.0).strong());
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         close |= ui
-                            .add(
-                                egui::Button::new(RichText::new("×").size(20.0))
-                                    .frame(false),
-                            )
+                            .add(egui::Button::new(RichText::new("×").size(20.0)).frame(false))
                             .on_hover_text("Close report export")
                             .clicked();
                     });
                 });
                 ui.label(
                     RichText::new(
-                        "A4 layout with the wafer map, key results, process parameters, and legend.",
+                        "Choose a visual report or a machine-readable analysis snapshot.",
                     )
                     .color(theme::TEXT_MUTED),
                 );
                 ui.add_space(12.0);
 
                 section_heading(ui, "EXPORT FORMAT", SectionGlyph::Wafer);
-                let mut show_format_buttons = |ui: &mut egui::Ui| {
-                    for (format, label, detail) in [
-                        (report::ReportFormat::Png, "PNG", "2× raster"),
-                        (report::ReportFormat::Svg, "SVG", "portable vector"),
-                        (report::ReportFormat::Pdf, "PDF", "A4 document"),
-                    ] {
-                        if report_format_button(
-                            ui,
-                            self.analysis.is_some(),
-                            format!("{label}\n{detail}"),
-                            compact,
-                        ) {
-                            export_format = Some(format);
-                        }
-                    }
-                };
+                let analysis_ready = self.analysis.is_some() && self.validation.is_none();
+                let formats = [
+                    (report::ReportFormat::Png, "PNG", "2× raster"),
+                    (report::ReportFormat::Svg, "SVG", "portable vector"),
+                    (report::ReportFormat::Pdf, "PDF", "A4 document"),
+                    (report::ReportFormat::Json, "JSON", "reproducible data"),
+                ];
                 if compact {
-                    ui.vertical(&mut show_format_buttons);
+                    ui.vertical(|ui| {
+                        for (format, label, detail) in formats {
+                            if report_format_button(
+                                ui,
+                                analysis_ready,
+                                format!("{label}\n{detail}"),
+                                true,
+                            ) {
+                                export_format = Some(format);
+                            }
+                        }
+                    });
                 } else {
-                    ui.horizontal(&mut show_format_buttons);
+                    egui::Grid::new("report_format_grid")
+                        .num_columns(2)
+                        .spacing(vec2(8.0, 8.0))
+                        .show(ui, |ui| {
+                            for (index, (format, label, detail)) in formats.into_iter().enumerate()
+                            {
+                                if report_format_button(
+                                    ui,
+                                    analysis_ready,
+                                    format!("{label}\n{detail}"),
+                                    false,
+                                ) {
+                                    export_format = Some(format);
+                                }
+                                if index % 2 == 1 {
+                                    ui.end_row();
+                                }
+                            }
+                        });
                 }
 
                 ui.add_space(10.0);
                 let print_response = ui.add_enabled(
-                    self.analysis.is_some(),
-                    egui::Button::new(
-                        RichText::new("Print report")
-                            .strong()
-                            .color(Color32::WHITE),
-                    )
-                    .fill(theme::ACCENT)
-                    .stroke(Stroke::new(1.0, theme::ACCENT))
-                    .min_size(vec2(ui.available_width(), 40.0))
-                    .corner_radius(9),
+                    analysis_ready,
+                    egui::Button::new(RichText::new("Print report").strong().color(Color32::WHITE))
+                        .fill(theme::ACCENT)
+                        .stroke(Stroke::new(1.0, theme::ACCENT))
+                        .min_size(vec2(ui.available_width(), 40.0))
+                        .corner_radius(9),
                 );
                 if print_response.clicked() {
                     print = true;
                 }
-                ui.label(
-                    RichText::new(print_hint())
-                        .small()
-                        .color(theme::TEXT_MUTED),
-                );
+                ui.label(RichText::new(print_hint()).small().color(theme::TEXT_MUTED));
 
-                if self.analysis.is_none() {
+                if !analysis_ready {
                     ui.add_space(8.0);
                     ui.label(
                         RichText::new("Resolve the current validation errors before exporting.")
@@ -551,12 +854,7 @@ impl YieldWorkbench {
                         ))
                         .stroke(Stroke::new(
                             1.0,
-                            Color32::from_rgba_unmultiplied(
-                                color.r(),
-                                color.g(),
-                                color.b(),
-                                70,
-                            ),
+                            Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 70),
                         ))
                         .corner_radius(8)
                         .inner_margin(10)
@@ -580,9 +878,15 @@ impl YieldWorkbench {
 
     fn export_report(&mut self, format: report::ReportFormat) {
         let result = self
-            .analysis
-            .as_ref()
-            .ok_or_else(|| "No valid analysis is available".to_owned())
+            .validation
+            .is_none()
+            .then_some(())
+            .ok_or_else(|| "Resolve the current validation errors before exporting".to_owned())
+            .and_then(|()| {
+                self.analysis
+                    .as_ref()
+                    .ok_or_else(|| "No valid analysis is available".to_owned())
+            })
             .and_then(|analysis| {
                 report::generate(&self.inputs, analysis, format).map_err(|error| error.to_string())
             })
@@ -603,9 +907,15 @@ impl YieldWorkbench {
 
     fn print_report(&mut self) {
         let result = self
-            .analysis
-            .as_ref()
-            .ok_or_else(|| "No valid analysis is available".to_owned())
+            .validation
+            .is_none()
+            .then_some(())
+            .ok_or_else(|| "Resolve the current validation errors before printing".to_owned())
+            .and_then(|()| {
+                self.analysis
+                    .as_ref()
+                    .ok_or_else(|| "No valid analysis is available".to_owned())
+            })
             .and_then(|analysis| delivery::print_report(&self.inputs, analysis));
 
         self.report_notice = Some(match result {
@@ -628,12 +938,29 @@ impl eframe::App for YieldWorkbench {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let context = ui.ctx().clone();
+        let page_scroll = if self.report_open {
+            0.0
+        } else {
+            let distance = context.content_rect().height() * 0.8;
+            context.input_mut(|input| {
+                if input.consume_key(egui::Modifiers::NONE, egui::Key::PageDown) {
+                    -distance
+                } else if input.consume_key(egui::Modifiers::NONE, egui::Key::PageUp) {
+                    distance
+                } else {
+                    0.0
+                }
+            })
+        };
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::CANVAS).inner_margin(0))
             .show(ui, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
+                        if page_scroll != 0.0 {
+                            ui.scroll_with_delta(vec2(0.0, page_scroll));
+                        }
                         ui.set_min_width(ui.available_width());
                         let horizontal_margin = if ui.available_width() < 640.0 { 14 } else { 24 };
                         egui::Frame::new()
@@ -662,7 +989,7 @@ impl eframe::App for YieldWorkbench {
 
 fn project_footer(ui: &mut egui::Ui) {
     let notice = || {
-        RichText::new("Murphy yield model  •  Results are planning estimates")
+        RichText::new("Random-defect yield estimate  •  Results are for planning")
             .small()
             .color(theme::TEXT_MUTED)
     };
@@ -702,6 +1029,49 @@ fn card() -> egui::Frame {
         })
 }
 
+fn paused_results_notice(ui: &mut egui::Ui) {
+    egui::Frame::new()
+        .fill(Color32::from_rgba_unmultiplied(
+            theme::AMBER.r(),
+            theme::AMBER.g(),
+            theme::AMBER.b(),
+            18,
+        ))
+        .stroke(Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(
+                theme::AMBER.r(),
+                theme::AMBER.g(),
+                theme::AMBER.b(),
+                80,
+            ),
+        ))
+        .corner_radius(10)
+        .inner_margin(12)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new("Results paused — showing the last valid setup")
+                    .strong()
+                    .color(theme::AMBER),
+            );
+            ui.label(
+                RichText::new("Fix the input errors before exporting or using these values.")
+                    .small()
+                    .color(theme::TEXT_MUTED),
+            );
+        });
+}
+
+fn unavailable_results(ui: &mut egui::Ui) {
+    card().show(ui, |ui| {
+        ui.label(RichText::new("Results unavailable").strong());
+        ui.label(
+            RichText::new("Enter a valid fabrication setup to calculate this section.")
+                .color(theme::TEXT_MUTED),
+        );
+    });
+}
+
 fn header_brand(ui: &mut egui::Ui) {
     egui::Frame::new()
         .fill(theme::ACCENT)
@@ -722,54 +1092,68 @@ fn header_brand(ui: &mut egui::Ui) {
 }
 
 fn reset_button(ui: &mut egui::Ui) -> bool {
-    let response = ui.add_sized(
-        [82.0, HEADER_CONTROL_HEIGHT],
-        egui::Button::new(RichText::new("Reset").color(theme::TEXT_MUTED))
-            .fill(Color32::TRANSPARENT)
-            .stroke(Stroke::new(1.0, theme::BORDER))
-            .corner_radius(12),
-    );
+    let response = ui
+        .add_sized(
+            [82.0, HEADER_CONTROL_HEIGHT],
+            egui::Button::new(RichText::new("Reset").color(theme::TEXT_MUTED))
+                .fill(Color32::TRANSPARENT)
+                .stroke(Stroke::new(1.0, theme::BORDER))
+                .corner_radius(12),
+        )
+        .on_hover_text("Restore the example values");
     let icon_rect = egui::Rect::from_center_size(
         egui::pos2(response.rect.left() + 15.0, response.rect.center().y),
         vec2(15.0, 15.0),
     );
     let icon_color = ui.style().interact(&response).fg_stroke.color;
     paint_reset_glyph(ui.painter(), icon_rect, icon_color);
+    paint_focus_ring(ui, &response, 12.0);
 
-    response
-        .on_hover_text("Restore the recommended starting values")
-        .clicked()
+    response.clicked()
 }
 
 fn report_button(ui: &mut egui::Ui) -> bool {
-    let response = ui.add_sized(
-        [94.0, HEADER_CONTROL_HEIGHT],
-        egui::Button::new(RichText::new("Report").color(theme::TEXT_MUTED))
-            .fill(Color32::TRANSPARENT)
-            .stroke(Stroke::new(1.0, theme::BORDER))
-            .corner_radius(12),
-    );
+    let response = ui
+        .add_sized(
+            [94.0, HEADER_CONTROL_HEIGHT],
+            egui::Button::new(RichText::new("Report").color(theme::TEXT_MUTED))
+                .fill(Color32::TRANSPARENT)
+                .stroke(Stroke::new(1.0, theme::BORDER))
+                .corner_radius(12),
+        )
+        .on_hover_text("Export or print a styled analysis report");
     let icon_rect = egui::Rect::from_center_size(
         egui::pos2(response.rect.left() + 16.0, response.rect.center().y),
         vec2(16.0, 16.0),
     );
     let icon_color = ui.style().interact(&response).fg_stroke.color;
     paint_report_glyph(ui.painter(), icon_rect, icon_color);
+    paint_focus_ring(ui, &response, 12.0);
 
-    response
-        .on_hover_text("Export or print a styled analysis report")
-        .clicked()
+    response.clicked()
+}
+
+fn paint_focus_ring(ui: &egui::Ui, response: &egui::Response, radius: f32) {
+    if response.has_focus() {
+        ui.painter().rect_stroke(
+            response.rect.expand(1.0),
+            radius,
+            Stroke::new(2.0, theme::ACCENT),
+            egui::StrokeKind::Outside,
+        );
+    }
 }
 
 fn report_format_button(ui: &mut egui::Ui, enabled: bool, label: String, compact: bool) -> bool {
-    let width = if compact { ui.available_width() } else { 126.0 };
-    ui.add_enabled(
+    let width = if compact { ui.available_width() } else { 190.0 };
+    let response = ui.add_enabled(
         enabled,
         egui::Button::new(RichText::new(label).line_height(Some(17.0)))
             .min_size(vec2(width, if compact { 46.0 } else { 54.0 }))
             .corner_radius(9),
-    )
-    .clicked()
+    );
+    keep_focused_visible(&response);
+    response.clicked()
 }
 
 fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent: Color32) {
@@ -784,6 +1168,45 @@ fn metric_card(ui: &mut egui::Ui, label: &str, value: &str, detail: &str, accent
             ui.add_space(3.0);
             ui.label(RichText::new(value).size(25.0).strong().color(theme::TEXT));
             ui.label(RichText::new(detail).small().color(theme::TEXT_MUTED));
+        });
+}
+
+fn summary_scope_note(ui: &mut egui::Ui, summary: &die_yield_core::YieldSummary) {
+    egui::Frame::new()
+        .fill(Color32::from_rgba_unmultiplied(
+            theme::BLUE.r(),
+            theme::BLUE.g(),
+            theme::BLUE.b(),
+            10,
+        ))
+        .stroke(Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(
+                theme::BLUE.r(),
+                theme::BLUE.g(),
+                theme::BLUE.b(),
+                45,
+            ),
+        ))
+        .corner_radius(9)
+        .inner_margin(10)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(format!(
+                    "Geometry scope: Gross counts complete active rectangles inside the usable radius. {} partial-boundary and {} edge-band sites are excluded.",
+                    format_integer(summary.partial),
+                    format_integer(summary.edge_excluded)
+                ))
+                .small()
+                .color(theme::TEXT_MUTED),
+            );
+            ui.label(
+                RichText::new(
+                    "Random-defect loss is applied only to Gross dies; red map locations are illustrative, not predicted.",
+                )
+                .small()
+                .color(theme::TEXT_MUTED),
+            );
         });
 }
 
@@ -809,6 +1232,37 @@ fn auto_update_note(ui: &mut egui::Ui) {
         );
         response.on_hover_text("Results refresh after any input changes");
     });
+}
+
+fn example_setup_notice(ui: &mut egui::Ui) {
+    ui.add_space(5.0);
+    egui::Frame::new()
+        .fill(Color32::from_rgba_unmultiplied(
+            theme::BLUE.r(),
+            theme::BLUE.g(),
+            theme::BLUE.b(),
+            12,
+        ))
+        .stroke(Stroke::new(
+            1.0,
+            Color32::from_rgba_unmultiplied(theme::BLUE.r(), theme::BLUE.g(), theme::BLUE.b(), 55),
+        ))
+        .corner_radius(8)
+        .inner_margin(10)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new("Example values are loaded")
+                    .strong()
+                    .color(theme::BLUE),
+            );
+            ui.label(
+                RichText::new(
+                    "Verify every dimension, edge policy, and D₀ before using the estimate.",
+                )
+                .small()
+                .color(theme::TEXT_MUTED),
+            );
+        });
 }
 
 fn paint_section_glyph(
@@ -962,52 +1416,172 @@ fn section_divider(ui: &mut egui::Ui) {
     ui.add_space(4.0);
 }
 
-fn input_row_f64(
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the shared row keeps each numeric format and focus behavior explicit"
+)]
+fn input_row_f64_with_precision(
     ui: &mut egui::Ui,
+    field: InputField,
     label: &str,
     value: &mut f64,
     range: std::ops::RangeInclusive<f64>,
     speed: f64,
     suffix: &str,
+    max_decimals: usize,
+    numeric_focus: &mut NumericFocusState,
 ) -> bool {
     let mut changed = false;
-    ui.horizontal(|ui| {
-        ui.label(RichText::new(label).color(theme::TEXT_MUTED));
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            changed = ui
-                .add_sized(
+    ui.push_id(label, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(label).color(theme::TEXT_MUTED));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let response = ui.add_sized(
                     [128.0, 32.0],
                     egui::DragValue::new(value)
                         .range(range)
                         .speed(speed)
-                        .max_decimals(3)
+                        .max_decimals(max_decimals)
                         .suffix(suffix),
-                )
-                .changed();
+                );
+                keep_focused_visible(&response);
+                preserve_numeric_focus(field, numeric_focus, &response);
+                changed = response.changed();
+            });
         });
     });
     changed
 }
 
+fn input_row_micrometres(
+    ui: &mut egui::Ui,
+    field: InputField,
+    label: &str,
+    value_mm: &mut f64,
+    numeric_focus: &mut NumericFocusState,
+) -> bool {
+    let mut value_um = *value_mm * 1_000.0;
+    let changed = input_row_f64_with_precision(
+        ui,
+        field,
+        label,
+        &mut value_um,
+        0.0..=10_000.0,
+        0.1,
+        " μm",
+        3,
+        numeric_focus,
+    );
+    if changed {
+        *value_mm = value_um / 1_000.0;
+    }
+    changed
+}
+
 fn input_row_u32(
     ui: &mut egui::Ui,
+    field: InputField,
     label: &str,
     value: &mut u32,
     range: std::ops::RangeInclusive<u32>,
+    numeric_focus: &mut NumericFocusState,
 ) -> bool {
     let mut changed = false;
-    ui.horizontal(|ui| {
-        ui.label(RichText::new(label).color(theme::TEXT_MUTED));
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            changed = ui
-                .add_sized(
+    ui.push_id(label, |ui| {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(label).color(theme::TEXT_MUTED));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let response = ui.add_sized(
                     [128.0, 32.0],
                     egui::DragValue::new(value).range(range).speed(0.2),
-                )
-                .changed();
+                );
+                keep_focused_visible(&response);
+                preserve_numeric_focus(field, numeric_focus, &response);
+                changed = response.changed();
+            });
         });
     });
     changed
+}
+
+fn preserve_numeric_focus(
+    field: InputField,
+    numeric_focus: &mut NumericFocusState,
+    response: &egui::Response,
+) {
+    if numeric_focus.sync_buffer == Some(field) {
+        response
+            .ctx
+            .data_mut(|data| data.remove::<String>(response.id));
+        numeric_focus.sync_buffer = None;
+    }
+    if numeric_focus.restore == Some(field) {
+        response.request_focus();
+        numeric_focus.restore = None;
+    }
+    if response.changed() && response.has_focus() {
+        numeric_focus.restore = Some(field);
+    }
+}
+
+fn yield_model_row(ui: &mut egui::Ui, model: &mut YieldModel) {
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("Random-defect model").color(theme::TEXT_MUTED));
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let response = egui::ComboBox::from_id_salt("yield_model_selector")
+                .selected_text(yield_model_label(*model))
+                .width(178.0)
+                .show_ui(ui, |ui| {
+                    for candidate in [
+                        YieldModel::MurphyTriangular,
+                        YieldModel::Poisson,
+                        YieldModel::NegativeBinomial,
+                        YieldModel::Seeds,
+                    ] {
+                        let response =
+                            ui.selectable_value(model, candidate, yield_model_label(candidate));
+                        keep_focused_visible(&response);
+                    }
+                })
+                .response;
+            keep_focused_visible(&response);
+        });
+    });
+}
+
+fn yield_model_label(model: YieldModel) -> &'static str {
+    match model {
+        YieldModel::Poisson => "Poisson",
+        YieldModel::MurphyTriangular => "Murphy triangular",
+        YieldModel::Seeds => "Seeds",
+        YieldModel::NegativeBinomial => "Negative binomial",
+    }
+}
+
+fn yield_model_explanation(model: YieldModel) -> &'static str {
+    match model {
+        YieldModel::Poisson => "Y = exp(−A·D₀). Assumes independent, uniformly random defects.",
+        YieldModel::MurphyTriangular => {
+            "Y = [(1 − exp(−A·D₀)) / (A·D₀)]². Models a triangular defect-density distribution."
+        }
+        YieldModel::Seeds => "Y = 1 / (1 + A·D₀). Equivalent to negative binomial with α = 1.",
+        YieldModel::NegativeBinomial => {
+            "Y = (1 + A·D₀ / α)^(−α). Lower α represents stronger defect clustering."
+        }
+    }
+}
+
+fn detail_row(ui: &mut egui::Ui, label: &str, value: &str) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(label).small().color(theme::TEXT_MUTED));
+        ui.label(RichText::new(value).small().strong().color(theme::TEXT));
+    });
+}
+
+fn keep_focused_visible(response: &egui::Response) {
+    if response.gained_focus() {
+        response.scroll_to_me(Some(Align::Center));
+    }
 }
 
 fn pill(ui: &mut egui::Ui, text: &str, color: Color32) {
@@ -1130,13 +1704,17 @@ mod tests {
     }
 
     #[test]
-    fn invalid_setup_surfaces_validation_without_stale_results() {
+    fn invalid_setup_preserves_the_last_valid_result_for_recovery() {
         let mut workbench = YieldWorkbench::default();
+        let last_valid = workbench
+            .analysis
+            .clone()
+            .expect("default setup should have a result");
         workbench.inputs.wafer.diameter_mm = 10.0;
         workbench.inputs.process.defect_density_cm2 = -1.0;
         workbench.recalculate();
 
-        assert!(workbench.analysis.is_none());
+        assert_eq!(workbench.analysis, Some(last_valid));
         assert!(workbench.validation.is_some());
 
         let context = egui::Context::default();
