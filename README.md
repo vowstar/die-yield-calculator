@@ -2,16 +2,21 @@
 
 Rust wafer die-yield and probe-planning calculator. Native and WebAssembly GUI.
 
-![Yield Studio desktop workspace and A4 report](https://github.com/user-attachments/assets/60be4b23-e922-40a9-9cd5-d9cc16618fae)
+**[Open Yield Studio in your browser](https://vowstar.github.io/die-yield-calculator/)**
+
+![Yield Studio showing Gross Dies per Wafer, estimated yield, expected good dies, wafer map, progressive calculation setup, and an exported analysis report](https://github.com/user-attachments/assets/225fbb31-5d30-4a2b-8168-4e18efdb0238)
 
 ## Features
 
+- Gross Dies / Wafer as the primary geometric result, separate from statistical yield
 - Wafer map with edge exclusion, die placement, and visible scribe lanes
-- Murphy yield model with deterministic defect visualization
+- Selectable Poisson, Murphy triangular, Seeds, and negative-binomial yield models
+- Progressive setup with essential inputs first and manufacturing, alignment, formula,
+  unit, exposure, and unrounded-expectation details available on demand
 - Standard wafer sizes from 76 mm (3 in) to 450 mm (18 in)
 - Die geometry, grid alignment, and probe-array controls
 - Responsive native and browser interface
-- PNG, SVG, and A4 PDF report export with printing
+- PNG, SVG, A4 PDF, and reproducible JSON export with printing
 
 ## Building
 
@@ -43,8 +48,17 @@ The output is written to `dist/` and requires no backend.
 ## Reports
 
 Open **Report** to export the current wafer map, results, parameters, and legend
-as PNG, SVG, or A4 PDF. Browser builds download the report directly and use the
-browser print dialog. Native builds use the system save dialog and PDF viewer.
+as PNG, SVG, or A4 PDF, or save normalized inputs and exact results as JSON.
+Browser builds download the report directly and use the browser print dialog.
+Native builds use the system save dialog and PDF viewer.
+
+## Calibration validation
+
+An offline workflow validates anonymous Gross Die datasets against the geometric
+baseline using grouped leave-one-project-out comparisons and explicit error gates.
+No fitted coefficient is bundled with the application. See the
+[calibration data contract](docs/gross-die-calibration-data.md) for required units,
+definitions, provenance controls, and release criteria.
 
 ## Testing
 
@@ -53,6 +67,8 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
 cargo check --workspace --target wasm32-unknown-unknown
+python3 -m unittest discover -s scripts -p 'test_*.py' -v
+python3 .agents/skills/run-multi-user-acceptance/scripts/evaluate_acceptance.py --self-test
 ```
 
 ## License
