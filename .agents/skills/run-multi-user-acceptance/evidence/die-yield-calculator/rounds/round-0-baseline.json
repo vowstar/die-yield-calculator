@@ -1,0 +1,340 @@
+{
+  "round": "round-0-baseline",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Live default renders a result immediately; crates/die-yield-gui/src/app.rs:157"
+          ]
+        },
+        {
+          "id": "locate-gross",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Gross count appears only as secondary text 'of 767 usable'; crates/die-yield-gui/src/app.rs:163"
+          ]
+        },
+        {
+          "id": "explain-losses",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "One Die Loss card combines 59 statistical losses with 124 separate boundary sites; crates/die-yield-gui/src/app.rs:177"
+          ]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "friction",
+          "evidence": [
+            "The same validation appears in summary, map, and setup while fields are not highlighted; crates/die-yield-gui/src/app.rs:157,254,406"
+          ]
+        },
+        {
+          "id": "narrow-first-estimate",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Narrow layout places the full wafer map before inputs; crates/die-yield-gui/src/app.rs:150"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "enter-production-precision",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "All floating-point editors cap presentation at three decimals; crates/die-yield-gui/src/app.rs:965"
+          ]
+        },
+        {
+          "id": "audit-yield-model",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "UI exposes only a Murphy label, not area conversion, exposure, formula, or alternatives; crates/die-yield-gui/src/app.rs:163"
+          ]
+        },
+        {
+          "id": "reproduce-grid-phase",
+          "core": false,
+          "status": "friction",
+          "evidence": [
+            "Manual phase exists, but normalized phase is not shown; crates/die-yield-core/src/validation.rs:89"
+          ]
+        },
+        {
+          "id": "compare-scenarios",
+          "core": false,
+          "status": "fail",
+          "evidence": [
+            "YieldWorkbench stores one FabricationInputs value; crates/die-yield-gui/src/app.rs:42"
+          ]
+        },
+        {
+          "id": "reproduce-export",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Reports lack machine-readable input import, model version, and unrounded values; crates/die-yield-gui/src/report.rs:98"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "verify-default-murphy",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Independent lambda=0.08 Murphy calculation gives 0.923608780146840; crates/die-yield-core/src/analysis.rs:44"
+          ]
+        },
+        {
+          "id": "separate-geometry-and-yield",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Primary UI hides geometric usable inside Expected Good detail; crates/die-yield-gui/src/app.rs:171"
+          ]
+        },
+        {
+          "id": "interpret-map-loss",
+          "core": false,
+          "status": "friction",
+          "evidence": [
+            "Pseudo-random expected losses are drawn at concrete sites without saying locations are illustrative; crates/die-yield-core/src/analysis.rs:160"
+          ]
+        },
+        {
+          "id": "check-invalid-limits",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Validation rejects and reports multiple invalid fields; crates/die-yield-core/src/analysis.rs:301"
+          ]
+        },
+        {
+          "id": "audit-calibration-claim",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "No calibration dataset, model, validation metrics, or coefficient version exists in the current repository"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": [
+            "Firefox keyboard/Xvfb pass rendered 92.36%, 708 of 767 usable, and 59 modeled losses"
+          ]
+        },
+        {
+          "id": "understand-primary-outputs",
+          "core": false,
+          "status": "friction",
+          "evidence": [
+            "Exact expectation and display rounding are not disclosed in the live interface"
+          ]
+        },
+        {
+          "id": "change-wafer-by-keyboard",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Tab and Enter changed the result to the 76 mm preset while focus remained off-screen"
+          ]
+        },
+        {
+          "id": "edit-and-recover-by-keyboard",
+          "core": true,
+          "status": "fail",
+          "evidence": [
+            "Tab reached off-screen controls without scrolling and Page Down did not move the egui scroll area"
+          ]
+        },
+        {
+          "id": "report-by-keyboard",
+          "core": false,
+          "status": "friction",
+          "evidence": [
+            "Report opens by keyboard, but Escape did not close the dialog in the Firefox/Xvfb pass"
+          ]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-murphy-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Independent Murphy result 0.923608780146840 matches the core and displayed 92.36%"
+      ]
+    },
+    {
+      "id": "default-geometry-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "Independent four-corner enumeration gives 767 usable, 124 partial, and 40 edge-band sites"
+      ]
+    },
+    {
+      "id": "zero-density-limit",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "cargo test --workspace passes zero_density_preserves_every_usable_die"
+      ]
+    },
+    {
+      "id": "whole-pitch-equivalence",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": [
+        "cargo test --workspace passes whole_pitch_offsets_produce_equivalent_analysis"
+      ]
+    },
+    {
+      "id": "calibration-wafer-dimension",
+      "required": true,
+      "status": "fail",
+      "severity": "major",
+      "evidence": [
+        "A 150 mm diameter wafer area is 17,671.46 mm², below both reported count multiplied by stated die-footprint area totals"
+      ]
+    },
+    {
+      "id": "calibration-coefficient-reproduction",
+      "required": true,
+      "status": "fail",
+      "severity": "major",
+      "evidence": [
+        "1.004×2862+9.7153=2883.1633 and 1.004×2031+9.7153=2048.8393, not the listed predictions under nearest-integer rounding"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-001",
+      "severity": "major",
+      "status": "open",
+      "summary": "Gross Dies is not a primary result",
+      "evidence": [
+        "crates/die-yield-gui/src/app.rs:163"
+      ]
+    },
+    {
+      "id": "F-002",
+      "severity": "major",
+      "status": "open",
+      "summary": "Statistical die loss and geometric boundary sites are visually mixed",
+      "evidence": [
+        "crates/die-yield-gui/src/app.rs:177"
+      ]
+    },
+    {
+      "id": "F-003",
+      "severity": "major",
+      "status": "open",
+      "summary": "Input precision cannot faithfully represent proposed calibration records",
+      "evidence": [
+        "crates/die-yield-gui/src/app.rs:965"
+      ]
+    },
+    {
+      "id": "F-004",
+      "severity": "major",
+      "status": "open",
+      "summary": "Narrow and keyboard workflows hide focused inputs and put the map before editing",
+      "evidence": [
+        "Firefox/Xvfb keyboard walkthrough and crates/die-yield-gui/src/app.rs:150"
+      ]
+    },
+    {
+      "id": "F-005",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Yield model, area conversion, exposure, and rounding are not auditable in the UI",
+      "evidence": [
+        "crates/die-yield-gui/src/app.rs:163"
+      ]
+    },
+    {
+      "id": "F-006",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Concrete red map cells can be mistaken for predicted defect locations",
+      "evidence": [
+        "crates/die-yield-core/src/analysis.rs:160"
+      ]
+    },
+    {
+      "id": "F-007",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Invalid input feedback is duplicated and claims fields are highlighted when they are not",
+      "evidence": [
+        "crates/die-yield-gui/src/app.rs:417"
+      ]
+    },
+    {
+      "id": "F-008",
+      "severity": "major",
+      "status": "open",
+      "summary": "Proposed calibration records contain unresolved units and inconsistent predictions",
+      "evidence": [
+        "Independent area and coefficient checks in correctness cases"
+      ]
+    },
+    {
+      "id": "F-009",
+      "severity": "major",
+      "status": "open",
+      "summary": "No out-of-sample calibration validation or domain guard exists",
+      "evidence": [
+        "No calibration implementation or dataset exists in the baseline revision"
+      ]
+    }
+  ]
+}

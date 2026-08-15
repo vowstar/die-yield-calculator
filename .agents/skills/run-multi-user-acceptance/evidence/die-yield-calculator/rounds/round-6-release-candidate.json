@@ -1,0 +1,81 @@
+{
+  "round": "round-6-release-candidate",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7+working-tree-round6; index-sha256=a5161afbae4bf2298275ec1761600a49075a356cf281777f137189d1df98f764; wasm-sha256=402461a369010640b76256b9239bd3625cf74dbf8040034470dc4bfa13363013"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "first-result", "core": true, "status": "pass", "evidence": ["An isolated scripted Firefox 153/WASM run at 500 by 1000 immediately showed Gross 767, Yield 92.36%, Expected Good approximately 708, and the 708.408 calculation"]},
+        {"id": "understand-primary-outputs", "core": true, "status": "pass", "evidence": ["The three primary cards independently identified complete geometric sites, selected-model yield, and rounded expected-good count"]},
+        {"id": "explain-losses", "core": true, "status": "pass", "evidence": ["The default scope note separately exposed 124 partial-boundary and 40 edge-band sites and called red random-loss locations illustrative rather than predicted"]},
+        {"id": "recover-invalid-input", "core": true, "status": "pass", "evidence": ["On a 76 mm setup, 40 mm edge exclusion showed the radius error and retained last-valid results; typing 3 without Tab cleared the error and synchronized the setup"]},
+        {"id": "inspect-alternate-model", "core": false, "status": "pass", "evidence": ["A fresh visible-selector interaction selected Poisson and exposed Y=exp(-A*D0), exposure 0.0800000000, yield 0.9231163464, and expectation 708.030238"]}
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "enter-production-precision", "core": true, "status": "pass", "evidence": ["Fresh Firefox entry typed 10.123456 one character at a time, retained the exact visible value, and changed Gross from 767 to an independently enumerated 753"]},
+        {"id": "audit-yield-models", "core": true, "status": "pass", "evidence": ["All four models were selected; formulas, active-area conversion, exposure, alpha, yields, and unrounded expectations matched independent oracles"]},
+        {"id": "audit-gross-policy", "core": true, "status": "pass", "evidence": ["Disclosures and reports covered active dimensions, X/Y scribe pitch, radial exclusion, complete-active-rectangle inclusive boundary, normalized phase, circular shape, and ignored notch"]},
+        {"id": "reproduce-export", "core": true, "status": "pass", "evidence": ["Fresh native and Firefox/WASM JSON hashes both equaled aab7fced6601a7ecd63d2569fe8af4c652236ab6f3e5b88af8473a3482ad1206; SVG hashes both equaled 8306b3f247a2d896e0e326d89ac06a408ad354d0a133eda9a04addaa9b343333"]},
+        {"id": "compare-scenarios", "core": false, "status": "friction", "evidence": ["The expert-persona walkthrough compared default 10.000 mm, Gross 767, area 80.0000 mm2 with 10.123456 mm, Gross 753, area 80.987648 mm2, but had to record or export the baseline manually"]}
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {"id": "verify-geometry-and-models", "core": true, "status": "pass", "evidence": ["Independent grid enumeration reproduced 767 Gross, 124 partial, and 40 edge-band sites; four model oracles matched"]},
+        {"id": "attack-limits-and-state", "core": true, "status": "pass", "evidence": ["Zero, near-zero, high exposure, monotonicity, model identities, invalid inputs, grid guard, last-valid state, focus recovery, and Reset passed"]},
+        {"id": "audit-surface-parity", "core": true, "status": "pass", "evidence": ["Native and frozen Firefox/WASM produced byte-identical current JSON and SVG reports with exact and rounded semantics"]},
+        {"id": "attack-calibration-gates", "core": true, "status": "pass", "evidence": ["Physical area, units, target definition, anonymous provenance, grouped holdout, sample threshold, and coefficient-release attacks passed"]},
+        {"id": "audit-neutral-claims", "core": true, "status": "pass", "evidence": ["Neutral-name scan found no semiconductor product, customer, or source-dataset identity from the supplied examples; no calibration data, fitted coefficient, or real-user-validation claim is bundled"]}
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "narrow-order", "core": true, "status": "pass", "evidence": ["At 500 by 1000 the order was summary, setup, then map; Page Down and Page Up followed that order"]},
+        {"id": "change-wafer-by-keyboard", "core": true, "status": "pass", "evidence": ["Tab three times and Enter selected the 76 mm preset, updating Gross to 31 and Expected Good to approximately 29"]},
+        {"id": "inspect-taxonomy-by-keyboard", "core": true, "status": "pass", "evidence": ["Keyboard traversal reached and opened Manufacturing geometry, exposing boundary, scribe, Gross-footprint, and active-yield-area semantics"]},
+        {"id": "navigate-and-report-by-keyboard", "core": true, "status": "pass", "evidence": ["Report and Reset had visible focus rings, Enter opened Report, Escape closed it, and Reset was confirmed as the second header tab stop"]},
+        {"id": "recover-invalid-by-keyboard", "core": true, "status": "pass", "evidence": ["The keyboard-only 40-to-3 correction succeeded without Tab or pointer refocus; the error cleared and focus stayed on edge exclusion"]}
+      ]
+    }
+  ],
+  "correctness": [
+    {"id": "representative-gross-oracle", "required": true, "status": "pass", "severity": "major", "evidence": ["Independent complete-active-rectangle enumeration with 10.12 by 8.12 mm pitch and 147 mm usable radius produced 767 Gross, 124 partial, and 40 edge-band sites"]},
+    {"id": "four-yield-formulas", "required": true, "status": "pass", "severity": "major", "evidence": ["At exposure 1, Poisson 0.36787944117144233, Murphy 0.39957640089372803, Seeds 0.5, and negative-binomial alpha 2 0.44444444444444442 matched"]},
+    {"id": "yield-limits-and-identities", "required": true, "status": "pass", "severity": "major", "evidence": ["Zero and high-exposure limits, finite bounds, density monotonicity, NB alpha 1 Seeds identity, and large-alpha Poisson convergence passed"]},
+    {"id": "unit-and-precision-oracle", "required": true, "status": "pass", "severity": "major", "evidence": ["80 mm2 equaled 0.8 cm2 and exposure 0.08; f64 Murphy 0.92360878014683934 agreed with a high-precision reference within 1.3e-16 and exact expected good was 708.40793437262573207"]},
+    {"id": "half-tie-rounding", "required": true, "status": "pass", "severity": "major", "evidence": ["A one-Gross Poisson fixture at D0=ln(2) produced exact 0.5, rounded good 1, and displayed defective 0"]},
+    {"id": "invalid-and-extreme-inputs", "required": true, "status": "pass", "severity": "major", "evidence": ["Non-finite and range errors, invalid negative-binomial alpha, million-candidate guard, high exposure, and near-radius edge exclusion were safely handled"]},
+    {"id": "phase-and-boundary", "required": true, "status": "pass", "severity": "major", "evidence": ["Whole-pitch equivalence, half-pitch change, asymmetric scribes, exact usable-corner inclusion, usable-boundary partial, and outer-boundary edge-band cases matched independent geometry"]},
+    {"id": "stale-and-reset-semantics", "required": true, "status": "pass", "severity": "major", "evidence": ["Invalid edits retained explicitly marked last-valid results and blocked export; no-Tab recovery and independent Reset to 300 mm and Gross 767 passed"]},
+    {"id": "normalized-phase-report-parity", "required": true, "status": "pass", "severity": "major", "evidence": ["Canonical and plus-three/minus-two whole-pitch-equivalent inputs emitted identical JSON and SVG with zero normalized phases"]},
+    {"id": "exact-rounded-environment-parity", "required": true, "status": "pass", "severity": "major", "evidence": ["Current native and Firefox/WASM JSON and SVG were byte-identical and shared exact expectation, rounded good, model, and policy metadata"]},
+    {"id": "calibration-physical-and-unit-guards", "required": true, "status": "pass", "severity": "major", "evidence": ["A 150 mm diameter with reported counts 2882 or 2052 failed the physical area bound; redundant-area and scribe-unit mismatches were also rejected"]},
+    {"id": "calibration-target-and-provenance-guards", "required": true, "status": "pass", "severity": "major", "evidence": ["Yield-adjusted targets, pre-shrink dimensions, wrong shape policy, non-opaque project IDs, ambiguous counts, and reused sources were rejected"]},
+    {"id": "calibration-coefficient-quarantine", "required": true, "status": "pass", "severity": "major", "evidence": ["Seven apparently supportive projects still emitted no recommendation or coefficient; the repository bundles no private dataset or fitted correction"]}
+  ],
+  "findings": [
+    {"id": "R6-001", "severity": "major", "status": "resolved", "summary": "High-precision entry was truncated by over-eager focus synchronization", "evidence": ["The corrected transition-only synchronization retained character-by-character 10.123456 input with a human-like inter-key delay and preserved no-Tab invalid recovery in isolated scripted Firefox runs"]},
+    {"id": "R6-002", "severity": "moderate", "status": "open", "summary": "Scenario comparison has no retained baseline or explicit delta", "evidence": ["The expert-persona walkthrough completed comparison by recording or export; no side-by-side in-app workflow exists"]},
+    {"id": "R6-003", "severity": "minor", "status": "resolved", "summary": "Earlier alternate-model evidence did not actually change the selector", "evidence": ["A fresh independent novice run visibly selected Poisson and inspected its formula, exposure, yield, and expectation"]}
+  ]
+}

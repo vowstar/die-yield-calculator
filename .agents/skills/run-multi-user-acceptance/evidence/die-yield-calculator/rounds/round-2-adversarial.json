@@ -1,0 +1,284 @@
+{
+  "round": "round-2-adversarial",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7+working-tree-round2; index-sha256=ff0c2b83e6320c387c8c8f95fc41efff7993d6a3fca9734767adc1683e409038; wasm-sha256=99443e164889c66d2d5cb726c57901cc206d3dcf7049cc746f26228b883fa819"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Firefox 153 at 500x1000 showed Gross 767, Yield 92.36%, and Expected Good approximately 708 without interaction"]
+        },
+        {
+          "id": "understand-primary-outputs",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Primary labels distinguish complete geometric sites, named Murphy yield, rounded good dies, and the 708.408 exact expectation"]
+        },
+        {
+          "id": "explain-losses",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Summary scope and map legend distinguish Gross, 124 partial-boundary sites, 40 edge-band sites, and illustrative random loss"]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Invalid 76 mm wafer with 40 mm edge retained 31 and approximately 29 and recovered at 3 mm, but the validation panel in view did not identify those values as the last-valid result"]
+        },
+        {
+          "id": "inspect-alternate-model",
+          "core": false,
+          "status": "pass",
+          "evidence": ["Keyboard opened the model selector, changed the model, and reached its expanded formula"]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "enter-production-precision",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Live inputs and fresh JSON retained 10.123456 by 8.654321 mm and 123.456/78.901 micrometre scribes"]
+        },
+        {
+          "id": "audit-yield-models",
+          "core": true,
+          "status": "pass",
+          "evidence": ["All four model selectors, formulas, area units, exposure, precision, and conditional alpha were inspectable"]
+        },
+        {
+          "id": "audit-gross-policy",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Direct UI and report path disclosed active-rectangle inclusion, active-plus-scribe pitch, radial edge exclusion, circular shape, and ignored-notch policy"]
+        },
+        {
+          "id": "reproduce-export",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Fresh JSON and SVG agreed on inputs, Gross 699, exact good 640.775213, package and geometry-method versions; an independent Murphy oracle matched"]
+        },
+        {
+          "id": "compare-scenarios",
+          "core": false,
+          "status": "fail",
+          "evidence": ["There is no scenario capture or side-by-side delta workflow; comparison requires manual transcription"]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "verify-geometry-and-models",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Independent grid enumeration and four independent yield formulas matched representative application results and limits"]
+        },
+        {
+          "id": "attack-limits-and-state",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Units, precision, half-tie rounding, invalid and extreme values, phase identities, stale state, and Reset passed"]
+        },
+        {
+          "id": "audit-surface-parity",
+          "core": true,
+          "status": "pass",
+          "evidence": ["UI, SVG, and JSON share normalized phase and exact/rounded semantics; native and wasm builds use the shared calculation path"]
+        },
+        {
+          "id": "attack-calibration-gates",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Physical bounds, units, target ambiguity, provenance laundering, and insufficient-data attacks released no invalid coefficient"]
+        },
+        {
+          "id": "audit-neutral-claims",
+          "core": true,
+          "status": "pass",
+          "evidence": ["No confidential product names, fitted coefficient, unsupported accuracy claim, or real-user-validation claim was found"]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "narrow-order",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Firefox 153 at exactly 500x1000 preserved Summary, Calculation setup, then Wafer map order"]
+        },
+        {
+          "id": "change-wafer-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Tab visibly focused 76 mm and Enter selected it while retaining focus and updating Gross to 31"]
+        },
+        {
+          "id": "inspect-taxonomy-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Keyboard reached and expanded manufacturing and yield disclosures; Page Down reached the map legend"]
+        },
+        {
+          "id": "navigate-and-report-by-keyboard",
+          "core": true,
+          "status": "fail",
+          "evidence": ["Page Down and visible Report/Reset focus were observed, but the independent run did not complete Page Up plus Report and Escape"]
+        },
+        {
+          "id": "recover-invalid-by-keyboard",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Keyboard recovery succeeded, but the changing validation layout dropped input focus and required 18 Tabs to reacquire the edge field"]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "representative-gross-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Independent active-corner enumeration at 147 mm usable radius and 10.12 by 8.12 mm pitch matched Gross 767"]
+    },
+    {
+      "id": "four-yield-formulas",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["At exposure 1, the application result matched Poisson 0.367879441171442, Murphy 0.399576400893728, Seeds 0.5, and negative binomial alpha 2 at 0.444444444444444"]
+    },
+    {
+      "id": "yield-limits-and-identities",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Zero and high-exposure limits, monotonicity, alpha 1 Seeds identity, and large-alpha Poisson convergence passed"]
+    },
+    {
+      "id": "unit-and-precision-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["80 mm2 equals 0.8 cm2; exposure 0.08 produced Murphy 0.923608780146840 and exact good 708.407934372626"]
+    },
+    {
+      "id": "half-tie-rounding",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["One Gross with Poisson exposure ln 2 produced exact 0.5, displayed good 1, and displayed defective 0"]
+    },
+    {
+      "id": "invalid-and-extreme-inputs",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Non-finite, negative, out-of-range, invalid alpha, invalid edge, and excessive-grid inputs were rejected; high valid exposure remained finite"]
+    },
+    {
+      "id": "phase-and-boundary",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Independent oracle matched default 767, whole-pitch equivalent 767, half-pitch origin 768, and inclusive circle tangency behavior"]
+    },
+    {
+      "id": "stale-and-reset-semantics",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Invalid edits retained the last valid analysis, blocked export, exposed field errors, and Reset reconstructed defaults"]
+    },
+    {
+      "id": "normalized-phase-report-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Whole-pitch-equivalent inputs generated canonical UI, JSON, and SVG phase/results"]
+    },
+    {
+      "id": "exact-rounded-environment-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["UI, SVG, and JSON share exact and rounded analysis values; native and wasm compilation passed on shared code"]
+    },
+    {
+      "id": "calibration-physical-and-unit-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The validator rejected 2,882 dies on a 150 mm diameter wafer, wrong scribe units, and a 0.2224 versus 22.24 mm2 area mismatch"]
+    },
+    {
+      "id": "calibration-target-and-provenance-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Ambiguous targets, one project mapped to two sources, and one source relabeled as two projects were rejected"]
+    },
+    {
+      "id": "calibration-coefficient-quarantine",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Invalid, insufficient, and failed-gate datasets emitted no fitted coefficient; no fitted coefficient is bundled"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R2-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "The validation panel in the active viewport does not repeat that displayed results are from the last valid setup",
+      "evidence": ["The summary has a paused notice, but focus scrolling can leave only the validation panel and retained values visible"]
+    },
+    {
+      "id": "R2-002",
+      "severity": "major",
+      "status": "open",
+      "summary": "A validation-layout transition can drop keyboard focus from the field being corrected",
+      "evidence": ["The constrained walkthrough needed 18 Tabs to reacquire radial edge exclusion after the error state changed"]
+    },
+    {
+      "id": "R2-003",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "The full Page Up, Report, and Escape keyboard path lacks completed Round 2 evidence",
+      "evidence": ["Page Down and focus rings were captured, but the independent walkthrough ended before Page Up and dialog closure"]
+    },
+    {
+      "id": "R2-004",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "No in-app scenario comparison is available",
+      "evidence": ["An expert must export or transcribe one setup before comparing it with another"]
+    }
+  ]
+}

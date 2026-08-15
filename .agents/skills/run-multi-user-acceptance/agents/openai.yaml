@@ -1,0 +1,4 @@
+interface:
+  display_name: "Multi-User Acceptance Audit"
+  short_description: "Simulate user roles and verify UX and correctness"
+  default_prompt: "Use $run-multi-user-acceptance to audit this application with independent user personas and correctness gates."

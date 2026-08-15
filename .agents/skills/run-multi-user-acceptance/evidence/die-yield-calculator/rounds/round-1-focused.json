@@ -1,0 +1,270 @@
+{
+  "round": "round-1-focused",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7+working-tree-round1"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Firefox 153 at 500x1000 showed Gross 767, Yield 92.36%, and Expected Good approximately 708 without interaction"]
+        },
+        {
+          "id": "locate-gross",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross Dies / Wafer is the first primary card and says complete sites before modeled defects"]
+        },
+        {
+          "id": "explain-losses",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Partial-boundary and edge-band counts required opening Geometry details; Page Down did not reach the map legend from the focused disclosure"]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Invalid edge exclusion showed a summary and inline rule, retained the last valid result, and recovered after entering 3 mm"]
+        },
+        {
+          "id": "narrow-first-estimate",
+          "core": true,
+          "status": "pass",
+          "evidence": ["At 500x1000 all three primary results appeared before setup, while setup remained before the large wafer map"]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "enter-production-precision",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Live UI retained 4.7999 x 5.56 mm and 65.6/180 micrometre scribe inputs"]
+        },
+        {
+          "id": "audit-yield-model",
+          "core": true,
+          "status": "pass",
+          "evidence": ["All four models exposed formulas, area, AD0, exact expectation, and Negative Binomial alpha semantics"]
+        },
+        {
+          "id": "reproduce-grid-phase",
+          "core": false,
+          "status": "pass",
+          "evidence": ["Grid details exposed placement pitch, usable diameter, and normalized phase"]
+        },
+        {
+          "id": "compare-scenarios",
+          "core": false,
+          "status": "fail",
+          "evidence": ["The application stores one setup and provides no baseline/candidate delta workflow"]
+        },
+        {
+          "id": "reproduce-export",
+          "core": true,
+          "status": "friction",
+          "evidence": ["JSON reconstructed the current result, but omitted the Gross boundary-footprint method and method version; SVG used entered phase while JSON used normalized phase"]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "verify-default-murphy",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Independent enumeration and Murphy oracle matched 767/124/40 and 0.9236087801468393"]
+        },
+        {
+          "id": "separate-geometry-and-yield",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross, random-defect yield, and expected good are separate primary outputs"]
+        },
+        {
+          "id": "interpret-map-loss",
+          "core": false,
+          "status": "pass",
+          "evidence": ["UI and reports label red locations illustrative and separate partial boundary from edge band"]
+        },
+        {
+          "id": "check-invalid-limits",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Independent zero, near-zero, high-exposure, invalid, tangent, and stale-state cases passed"]
+        },
+        {
+          "id": "audit-calibration-claim",
+          "core": true,
+          "status": "fail",
+          "evidence": ["One source_ref reused across P001 through P008 passed the independent-project gate and released a coefficient"]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Exact 500x1000 Firefox capture showed all primary results immediately"]
+        },
+        {
+          "id": "understand-primary-outputs",
+          "core": false,
+          "status": "pass",
+          "evidence": ["Gross basis, named model, and exact expected-good relationship were visible"]
+        },
+        {
+          "id": "change-wafer-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Tab and Return selected a wafer preset, retained visible focus, and updated the result"]
+        },
+        {
+          "id": "edit-and-recover-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Keyboard-only invalid edge entry, local diagnosis, last-valid retention, and recovery completed"]
+        },
+        {
+          "id": "report-by-keyboard",
+          "core": false,
+          "status": "friction",
+          "evidence": ["Report opened and Escape closed it, but Report and Reset focus was not visibly indicated"]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-geometry-and-murphy-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Independent oracle matched Gross 767, partial 124, edge 40, Murphy 0.9236087801468393, and exact good 708.4079343726257"]
+    },
+    {
+      "id": "four-model-unit-exposure-oracles",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["At AD0=1 the application result matched independent Poisson, Murphy triangular, Seeds, and Negative Binomial alpha=2 values"]
+    },
+    {
+      "id": "model-limits-and-negative-binomial-identities",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Zero/high limits, alpha=1 Seeds identity, and large-alpha Poisson convergence passed"]
+    },
+    {
+      "id": "units-phase-and-boundary-oracles",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["mm2/cm2 conversion, whole-pitch phase equivalence, and exact circle tangencies passed"]
+    },
+    {
+      "id": "rounding-stale-state-and-preset-invariants",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Half-tie good rounding, Gross invariant, last-valid recovery, export blocking, and preset non-mutation passed"]
+    },
+    {
+      "id": "visual-svg-json-parity",
+      "required": true,
+      "status": "fail",
+      "severity": "major",
+      "evidence": ["SVG preserved entered whole-pitch phase while JSON emitted normalized zero, and the UI equality mixed rounded yield with a full-precision result"]
+    },
+    {
+      "id": "calibration-wafer-dimension-guard",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Validator rejected 150-mm rows reporting 2882/2052 against physical area bounds of 780/558"]
+    },
+    {
+      "id": "calibration-coefficient-quarantine",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["No unverified fitted coefficient is bundled or presented; supplied displayed arithmetic remains quarantined"]
+    },
+    {
+      "id": "calibration-independent-source-gate",
+      "required": true,
+      "status": "fail",
+      "severity": "major",
+      "evidence": ["Eight project IDs sharing source S001 were counted as independent and released a proportional coefficient"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R1-001",
+      "severity": "major",
+      "status": "open",
+      "summary": "Calibration independence can be fabricated by reusing one source across project IDs",
+      "evidence": ["Adversarial P001-P008/S001 dataset passed the coefficient gate"]
+    },
+    {
+      "id": "R1-002",
+      "severity": "major",
+      "status": "open",
+      "summary": "Gross boundary footprint is not disclosed in UI or exports",
+      "evidence": ["Only source inspection revealed that the complete active rectangle must fit inside the usable radius"]
+    },
+    {
+      "id": "R1-003",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Report and Reset lack a visible keyboard focus indicator",
+      "evidence": ["First two Tab screenshots were byte-identical before focus became visible on the first wafer preset"]
+    },
+    {
+      "id": "R1-004",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Boundary and statistical loss taxonomy is inefficient to discover",
+      "evidence": ["Novice needed the final Geometry details disclosure and could not Page Down to the map legend"]
+    },
+    {
+      "id": "R1-005",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Entered and normalized phase plus displayed precision are inconsistent across surfaces",
+      "evidence": ["SVG/JSON phase mismatch and 767 x 92.36% not reproducing the displayed exact expectation"]
+    },
+    {
+      "id": "R1-006",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "No in-app scenario comparison",
+      "evidence": ["One setup must be exported and compared externally"]
+    }
+  ]
+}

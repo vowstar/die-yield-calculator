@@ -1,0 +1,284 @@
+{
+  "round": "round-3-regression",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7+working-tree-round3; index-sha256=d5ef1672b5c2471686b6ba27a739ab4a0c6a61a46c56f9e9795ec4fa35e056e3; wasm-sha256=e730717d63849942a13140e857f11257c4a613416d62d972610f57a8a7bd76f6"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "first-result",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Frozen Firefox/WASM showed Gross 767, Yield 92.36%, and Expected Good approximately 708 by default"]
+        },
+        {
+          "id": "understand-primary-outputs",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Labels distinguish geometry, model yield, approximate whole-die display, and exact 708.408 calculation"]
+        },
+        {
+          "id": "explain-losses",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Keyboard-reached summary and map distinguish Gross, partial boundary, edge band, and illustrative loss"]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Invalid 40 mm exclusion explicitly said results remained from the last valid setup, identified the cross-field error, and recovered at 3 mm"]
+        },
+        {
+          "id": "inspect-alternate-model",
+          "core": false,
+          "status": "friction",
+          "evidence": ["The attempted keyboard sequence stopped on defect density, so alternate-model formula inspection was not completed in this run"]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "enter-production-precision",
+          "core": true,
+          "status": "pass",
+          "evidence": ["A 10.123456789 mm input was retained and exported with full floating-point precision without changing unrelated values"]
+        },
+        {
+          "id": "audit-yield-models",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Murphy formula, units, exposure, and precision were observed, but the independent run did not exercise all four selectors and negative-binomial alpha"]
+        },
+        {
+          "id": "audit-gross-policy",
+          "core": true,
+          "status": "pass",
+          "evidence": ["UI/export disclosed inclusive active-rectangle boundary, active-plus-scribe pitch, radial exclusion, circular wafer, ignored notch, usable diameter, and boundary counts"]
+        },
+        {
+          "id": "reproduce-export",
+          "core": true,
+          "status": "fail",
+          "evidence": ["JSON retained 708.40793437262573207 while SVG called the six-decimal value 708.407934 exact"]
+        },
+        {
+          "id": "compare-scenarios",
+          "core": false,
+          "status": "fail",
+          "evidence": ["No in-app side-by-side scenario or causal-delta workflow is available"]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "verify-geometry-and-models",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Independent Gross enumeration, four formulas, and model limits matched"]
+        },
+        {
+          "id": "attack-limits-and-state",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Units, precision, half-tie, validation, extremes, phase, stale state, and Reset passed"]
+        },
+        {
+          "id": "audit-surface-parity",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Verifier accepted shared UI/JSON/SVG semantics and observed native and frozen Firefox/WASM default parity"]
+        },
+        {
+          "id": "attack-calibration-gates",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Physical, unit, target, provenance, and coefficient-release attacks passed"]
+        },
+        {
+          "id": "audit-neutral-claims",
+          "core": true,
+          "status": "pass",
+          "evidence": ["No product identifier, bundled fit, or real-user-validation claim was found"]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "narrow-order",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Page Down traversed summary, setup, then wafer map at 500x1000"]
+        },
+        {
+          "id": "change-wafer-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Tab and Enter changed the wafer to 76 mm with a visible focus outline"]
+        },
+        {
+          "id": "inspect-taxonomy-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Keyboard traversal exposed the complete map taxonomy and explanatory text"]
+        },
+        {
+          "id": "navigate-and-report-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Page Down/Page Up worked, Report and Reset had visible focus, Enter opened Report, and Escape closed it"]
+        },
+        {
+          "id": "recover-invalid-by-keyboard",
+          "core": true,
+          "status": "fail",
+          "evidence": ["Typing invalid edge exclusion moved DOM focus to the canvas; a valid replacement had no effect until 18 Tabs reacquired the input"]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "representative-gross-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Independent active-rectangle enumeration matched Gross 767 in tests, native UI, and Firefox/WASM"]
+    },
+    {
+      "id": "four-yield-formulas",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["At exposure 1, independent Poisson, Murphy, Seeds, and negative-binomial alpha 2 values matched the application result"]
+    },
+    {
+      "id": "yield-limits-and-identities",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Zero/high limits, bounds, monotonicity, Seeds identity, and Poisson convergence passed"]
+    },
+    {
+      "id": "unit-and-precision-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["80 mm2 equals 0.8 cm2 and full-precision fields matched the analysis"]
+    },
+    {
+      "id": "half-tie-rounding",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["One Gross at Poisson exposure ln 2 displayed good 1 and defective 0 from exact 0.5"]
+    },
+    {
+      "id": "invalid-and-extreme-inputs",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Invalid values and oversized grids were rejected; maximum valid exposure stayed finite and bounded"]
+    },
+    {
+      "id": "phase-and-boundary",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Whole-pitch equivalent inputs matched Gross 767 and exact circle tangencies followed the inclusive policy"]
+    },
+    {
+      "id": "stale-and-reset-semantics",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Invalid input retained exact last-valid analysis and blocked export; native Reset restored 300 mm and Gross 767"]
+    },
+    {
+      "id": "normalized-phase-report-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Canonical and whole-pitch-equivalent JSON and SVG were byte-identical"]
+    },
+    {
+      "id": "exact-rounded-environment-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Verifier observed 767, 92.36%, approximately 708, and 708.408 on native and frozen browser; JSON retained the exact value"]
+    },
+    {
+      "id": "calibration-physical-and-unit-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The 150 mm physical bound, wrong scribe unit, and inconsistent redundant-area attacks were rejected"]
+    },
+    {
+      "id": "calibration-target-and-provenance-guards",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Yield-adjusted and uncertain targets plus one-source/many-project laundering were rejected"]
+    },
+    {
+      "id": "calibration-coefficient-quarantine",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Seven-project, invalid, and failed-gate inputs emitted no fitted coefficient"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R3-001",
+      "severity": "major",
+      "status": "open",
+      "summary": "Validation layout still removes keyboard focus from the number being corrected",
+      "evidence": ["The active DOM element changed from the edge input to the canvas immediately after the invalid value appeared"]
+    },
+    {
+      "id": "R3-002",
+      "severity": "major",
+      "status": "open",
+      "summary": "SVG labels a six-decimal expectation exact while JSON retains a longer calculation value",
+      "evidence": ["SVG 708.407934 versus JSON 708.40793437262573207; the verifier accepted the stated rounding policy but the expert rejected the exact label"]
+    },
+    {
+      "id": "R3-003",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "One expert run did not complete all four model interactions",
+      "evidence": ["Murphy was observed but negative-binomial alpha and the other selectors were not exercised"]
+    },
+    {
+      "id": "R3-004",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "No in-app scenario comparison is available",
+      "evidence": ["An expert still needs export or transcription to compare two setups"]
+    }
+  ]
+}

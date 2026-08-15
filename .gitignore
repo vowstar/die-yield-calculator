@@ -4,3 +4,17 @@
 *.log
 *.swp
 *.tmp
+__pycache__/
+*.pyc
+/private/
+
+# Keep repository-owned agent workflows versioned despite the user's global
+# ignore rule for private .agents directories.
+!/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/run-multi-user-acceptance/
+!/.agents/skills/run-multi-user-acceptance/**
+/.agents/skills/run-multi-user-acceptance/**/__pycache__/
+/.agents/skills/run-multi-user-acceptance/**/*.pyc

@@ -1,0 +1,81 @@
+{
+  "round": "round-4-frozen-evidence",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "90edb2d64281104b6498bc65dbe5b2d5e78651f7+working-tree-round4; index-sha256=70c71ab29626599203a435ea9eae7251589fbebf2d0ef82957aefe271bbdecde; wasm-sha256=1d8ad221a2fc09edf2cfdf9064948aab50ba880ff6f4de1c76aafa1612c4b91b"
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "first-result", "core": true, "status": "pass", "evidence": ["Frozen browser showed Gross 767, Yield 92.36%, and Expected Good approximately 708"]},
+        {"id": "understand-primary-outputs", "core": true, "status": "pass", "evidence": ["Labels explained geometry, yield, rounded expectation, and 708.408 calculation"]},
+        {"id": "explain-losses", "core": true, "status": "pass", "evidence": ["Scope text exposed 767 Gross, 124 partial, 40 edge-band, and illustrative loss"]},
+        {"id": "recover-invalid-input", "core": true, "status": "fail", "evidence": ["The assigned independent run stopped before exercising invalid cross-field recovery"]},
+        {"id": "inspect-alternate-model", "core": false, "status": "friction", "evidence": ["The selector and formula section were visible, but alternate-model operation was not completed"]}
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "enter-production-precision", "core": true, "status": "pass", "evidence": ["High-precision state and 17-decimal report serialization were inspected"]},
+        {"id": "audit-yield-models", "core": true, "status": "fail", "evidence": ["Poisson and formula details were inspected, but all four live model paths and alpha were not completed"]},
+        {"id": "audit-gross-policy", "core": true, "status": "pass", "evidence": ["Gross, partial, edge, pitch, boundary, radial exclusion, shape, and notch policies were inspected"]},
+        {"id": "reproduce-export", "core": true, "status": "fail", "evidence": ["Source consistency was inspected, but the assigned run did not complete fresh JSON and SVG export"]},
+        {"id": "compare-scenarios", "core": false, "status": "fail", "evidence": ["No in-app side-by-side delta workflow exists"]}
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {"id": "verify-geometry-and-models", "core": true, "status": "pass", "evidence": ["Geometry, four formulas, and model limits passed"]},
+        {"id": "attack-limits-and-state", "core": true, "status": "pass", "evidence": ["Limits, units, state, rounding, and phase passed"]},
+        {"id": "audit-surface-parity", "core": true, "status": "fail", "evidence": ["The run lacked native/browser byte evidence for the new 17-decimal report string"]},
+        {"id": "attack-calibration-gates", "core": true, "status": "pass", "evidence": ["Calibration physical, unit, target, provenance, and release gates passed"]},
+        {"id": "audit-neutral-claims", "core": true, "status": "pass", "evidence": ["Neutrality and claim checks passed"]}
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {"id": "narrow-order", "core": true, "status": "pass", "evidence": ["Summary, setup, then map order was observed"]},
+        {"id": "change-wafer-by-keyboard", "core": true, "status": "fail", "evidence": ["The assigned run did not exercise keyboard wafer selection"]},
+        {"id": "inspect-taxonomy-by-keyboard", "core": true, "status": "fail", "evidence": ["The assigned run did not complete keyboard taxonomy operation"]},
+        {"id": "navigate-and-report-by-keyboard", "core": true, "status": "fail", "evidence": ["Page navigation was partial; Report focus, Enter, and Escape were not completed"]},
+        {"id": "recover-invalid-by-keyboard", "core": true, "status": "fail", "evidence": ["The prescribed focus-retaining invalid and recovery sequence was not completed"]}
+      ]
+    }
+  ],
+  "correctness": [
+    {"id": "representative-gross-oracle", "required": true, "status": "pass", "severity": "major", "evidence": ["Independent default enumeration matched 767"]},
+    {"id": "four-yield-formulas", "required": true, "status": "pass", "severity": "major", "evidence": ["Four unit-exposure oracles matched"]},
+    {"id": "yield-limits-and-identities", "required": true, "status": "pass", "severity": "major", "evidence": ["Limits and identities passed"]},
+    {"id": "unit-and-precision-oracle", "required": true, "status": "pass", "severity": "major", "evidence": ["Unit and precision cases passed"]},
+    {"id": "half-tie-rounding", "required": true, "status": "pass", "severity": "major", "evidence": ["Half-tie rounded good to one"]},
+    {"id": "invalid-and-extreme-inputs", "required": true, "status": "pass", "severity": "major", "evidence": ["Invalid and extreme guards passed"]},
+    {"id": "phase-and-boundary", "required": true, "status": "pass", "severity": "major", "evidence": ["Phase and inclusive-boundary cases passed"]},
+    {"id": "stale-and-reset-semantics", "required": true, "status": "pass", "severity": "major", "evidence": ["Stale-state and Reset cases passed"]},
+    {"id": "normalized-phase-report-parity", "required": true, "status": "pass", "severity": "major", "evidence": ["Equivalent phase exports matched"]},
+    {"id": "exact-rounded-environment-parity", "required": true, "status": "fail", "severity": "major", "evidence": ["The run did not obtain native/browser byte-comparison evidence for the new full-precision string"]},
+    {"id": "calibration-physical-and-unit-guards", "required": true, "status": "pass", "severity": "major", "evidence": ["Physical and unit guards passed"]},
+    {"id": "calibration-target-and-provenance-guards", "required": true, "status": "pass", "severity": "major", "evidence": ["Target and provenance guards passed"]},
+    {"id": "calibration-coefficient-quarantine", "required": true, "status": "pass", "severity": "major", "evidence": ["Coefficient quarantine passed"]}
+  ],
+  "findings": [
+    {"id": "R4-001", "severity": "major", "status": "open", "summary": "Required keyboard and expert interactions lack completed evidence", "evidence": ["Multiple assigned core paths were reported unverified rather than executed"]},
+    {"id": "R4-002", "severity": "major", "status": "open", "summary": "Cross-target full-precision report parity lacks direct evidence in this round", "evidence": ["The verifier found no actual discrepancy but treated the missing native/browser byte comparison as a correctness veto"]},
+    {"id": "R4-003", "severity": "moderate", "status": "open", "summary": "No in-app scenario comparison is available", "evidence": ["Expert comparison still requires export or transcription"]}
+  ]
+}
