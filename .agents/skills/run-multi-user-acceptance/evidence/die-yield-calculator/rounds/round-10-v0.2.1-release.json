@@ -1,0 +1,191 @@
+{
+  "round": "round-10-v0.2.1-release",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "6bf8f222e05bdcd985c1f9bfcc74d29b9d91583a",
+    "version": "0.2.1",
+    "rust_edition": "2024",
+    "index_sha256": "4f09e53fddbf16aa7f14924e63b238770ec17717e3dd19652990dfaa313d038e",
+    "javascript_sha256": "6b621a9d6f57ee6664f67921d3e9269a6b968b331f36d56febc93c30be4db96c",
+    "wasm_sha256": "daad998474ed351ef748d7b4ced506aa7fbf13b8a133b074861a26ab53e635a7",
+    "native_binary_sha256": "78c9ad3e3bcca6077ffbf58076a6066d94dfbe9789ce76964773dfbc9ec59d00",
+    "report_json_sha256": "ec08342591ef2a837a7dc10b602f5866d3c78a8d6d2214309bb8920b9a971ab8",
+    "report_svg_sha256": "334658d9894dc0cd59811417850d90cb9807444558ed7d466e7e3449ffb31017",
+    "readme_image_sha256": "bbd2cc0c49d0dd2368c420ae8979ded7963a7b3d32e395f2735a0518b7c9275f"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "browser": "isolated scripted Firefox 153 desktop and narrow sessions",
+    "native": "Linux release under isolated Xvfb desktop and narrow sessions",
+    "viewports": ["1200x950", "500x1000"],
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "Keyboard simulation is not screen-reader or assistive-technology validation.",
+      "No production calibration dataset, process-complexity coefficient, or fab-wide accuracy claim was evaluated."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "understand-primary-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross 767 remains the first result, separate from 92.36% statistical yield and approximately 708 expected good dies."]
+        },
+        {
+          "id": "understand-d0-basis",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The visible essentials copy identifies the required effective full-process random-fatal-defect density and rejects unsupported baseline or per-mask inputs."]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "avoid-complexity-double-counting",
+          "core": true,
+          "status": "pass",
+          "evidence": ["No process-complexity control or default coefficient was added, so an effective D0 is not silently multiplied by another factor."]
+        },
+        {
+          "id": "audit-alpha-semantics",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Negative-binomial alpha remains explicitly limited to random-defect clustering."]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "audit-report-provenance",
+          "core": true,
+          "status": "pass",
+          "evidence": ["JSON and SVG identify calculator 0.2.1, preserve exact numeric inputs and results, and include the same D0 policy."]
+        },
+        {
+          "id": "audit-environment-parity",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Fresh native and Firefox exports are byte-identical for JSON and SVG."]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "read-policy-without-hover",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The D0 policy is always visible, wraps cleanly at 500 pixels, and does not depend on a pointer hover."]
+        },
+        {
+          "id": "continue-to-model-and-report",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The model selector, progressive settings, and Report action remain reachable in native and browser runs."]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-geometry-and-yield",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The default remains Gross 767, partial 124, edge band 40, Murphy yield 0.92360878014683934, and exact expected good 708.4079343726257."]
+    },
+    {
+      "id": "formula-non-regression",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The semantic patch does not modify geometry, exposure, or any Poisson, Murphy, Seeds, or negative-binomial calculation path."]
+    },
+    {
+      "id": "d0-policy-consistency",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["UI, core API documentation, SVG, JSON, and README consistently define an effective full-process random-fatal-defect input."]
+    },
+    {
+      "id": "json-backward-compatibility",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Schema v1 and defect_density_per_cm2 remain unchanged; defect_density_policy is an additive metadata field."]
+    },
+    {
+      "id": "native-browser-export-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Native and browser JSON both hash to ec08342591ef2a837a7dc10b602f5866d3c78a8d6d2214309bb8920b9a971ab8; SVG both hash to 334658d9894dc0cd59811417850d90cb9807444558ed7d466e7e3449ffb31017."]
+    },
+    {
+      "id": "release-build-and-regression",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Workspace check, formatting, clippy, 39 regular Rust tests, the manual report helper, 12 calibration tests, the acceptance evaluator self-test, the wasm check, native release, and Trunk release completed successfully."]
+    },
+    {
+      "id": "screenshot-integrity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The 1600 by 900 image preserves the previous workspace-plus-report composition, shows the final D0 copy and 0.2.1 report, and its Issue attachment is byte-identical to the audited local PNG."]
+    },
+    {
+      "id": "neutral-release-scan",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Shipped UI, reports, README, and implementation contain no semiconductor vendor or product identity and make no production-fit claim."]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R8-001",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "The defect-density input basis was not auditable",
+      "evidence": ["The final UI and exports define the effective D0 contract and explicitly exclude incompatible baseline or per-mask values."]
+    },
+    {
+      "id": "R9-001",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "The README screenshot still showed the previous release",
+      "evidence": ["A new v0.2.1 image was appended to the existing screenshot Issue, independently downloaded and hash-verified, and referenced from README without deleting older attachments."]
+    },
+    {
+      "id": "R10-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Scenario comparison has no retained baseline or explicit delta",
+      "evidence": ["Deterministic JSON supports manual comparison, but the application still does not retain two named scenarios side by side."]
+    }
+  ]
+}

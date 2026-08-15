@@ -47,6 +47,15 @@ finding remains open
 Scenario comparison remains a moderate, non-core expert efficiency gap. These
 scores are simulated acceptance, not measured customer satisfaction.
 
+Rounds 8–10 audited a second semantic risk: D₀ could be interpreted as a raw
+baseline or per-mask value even though the built-in area models require an
+effective full-process random-fatal-defect density. The v0.2.1 release makes that
+contract visible in the UI and reproducible in SVG and JSON without adding a
+process-complexity coefficient or changing any calculation. The final focused
+gate passes with 4/4 simulated personas, 8/8 persona tasks, 8/8 correctness cases,
+and no open blocker or major finding
+([round-10-v0.2.1-release.json](rounds/round-10-v0.2.1-release.json)).
+
 ## Implementation slices
 
 ### 1. Truthful primary outputs
@@ -109,6 +118,10 @@ scores are simulated acceptance, not measured customer satisfaction.
 7. **Round 7 — v0.2.0 release:** rebuild the versioned artifact, repeat the
    persona, numerical, calibration, export-parity, keyboard, and screenshot
    challenges, and preserve the zero-participant limitation in the evidence.
+8. **Rounds 8–10 — D₀ semantics and v0.2.1 release:** fail the tagged baseline
+   on input-basis ambiguity, rerun focused novice/expert/export/narrow tasks after
+   the clarification, then repeat release, report-parity, and screenshot gates on
+   the versioned artifact.
 
 Each round is evaluated with
 `.agents/skills/run-multi-user-acceptance/scripts/evaluate_acceptance.py`.
@@ -122,3 +135,6 @@ wafer interpretation is treated as most consistent with a 300 mm nominal
 diameter, but the source of
 its incorrect `150 mm (6 in)` label remains unknown. Critical-area analysis
 remains deferred until layout-derived critical area and defect-size data exist.
+A separate process-complexity model remains deferred until users can supply an
+authoritative factor definition; the existing negative-binomial alpha continues
+to mean defect clustering only.

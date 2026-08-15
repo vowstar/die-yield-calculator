@@ -1,0 +1,132 @@
+{
+  "round": "round-8-d0-baseline",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "34b4d2470ce310a503dd6755445dc9b17c41dc04",
+    "version": "0.2.0",
+    "rust_edition": "2024"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "scope": "Prospective audit of the D0 input contract in the tagged v0.2.0 UI and exports",
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "The audit distinguishes input semantics; it does not infer a production process model from rounded yield examples."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "obtain-default-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The tagged application immediately reports Gross 767, Yield 92.36%, and Expected Good approximately 708."]
+        },
+        {
+          "id": "choose-compatible-d0",
+          "core": true,
+          "status": "friction",
+          "evidence": ["The visible field supplied a unit but did not say whether D0 must already represent the full process."]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "distinguish-effective-from-baseline-d0",
+          "core": true,
+          "status": "fail",
+          "evidence": ["Neither the UI nor report stated that a baseline or per-mask D0 needing a separate process-complexity factor was unsupported."]
+        },
+        {
+          "id": "identify-clustering-alpha",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The negative-binomial disclosure correctly described alpha as a defect-clustering parameter rather than process complexity."]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "audit-exported-d0-basis",
+          "core": true,
+          "status": "fail",
+          "evidence": ["JSON preserved the numeric defect-density input but had no metadata defining its process basis, and the visual report only said Defect density."]
+        },
+        {
+          "id": "verify-formulas",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The four random-defect formulas and active-area exposure calculation were already explicit and numerically consistent."]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "reach-d0-input",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The D0 field was reachable in the essentials section on a narrow viewport."]
+        },
+        {
+          "id": "discover-d0-basis-without-hover",
+          "core": true,
+          "status": "friction",
+          "evidence": ["No always-visible policy text distinguished a usable full-process value from an incompatible baseline value."]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-numerical-baseline",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The independent baseline remains Gross 767, Murphy yield 0.92360878014683934, and exact expected good 708.4079343726257."]
+    },
+    {
+      "id": "d0-input-contract",
+      "required": true,
+      "status": "fail",
+      "severity": "major",
+      "evidence": ["The same number could be entered under materially different baseline, per-mask, or effective full-process interpretations without an on-screen warning."]
+    },
+    {
+      "id": "clustering-complexity-separation",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The existing alpha parameter was defined only as clustering and was not silently reused as a mask or process-complexity factor."]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R8-001",
+      "severity": "major",
+      "status": "open",
+      "summary": "The defect-density input basis was not auditable",
+      "evidence": ["A plausible baseline or per-mask value could be accepted by every built-in model and produce a precise but semantically invalid yield estimate."]
+    }
+  ]
+}

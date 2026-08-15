@@ -1,0 +1,148 @@
+{
+  "round": "round-9-d0-focused",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "dfde2806b608831f9892b02565809a50f3762673",
+    "version": "0.2.1",
+    "rust_edition": "2024"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "browser": "isolated scripted Firefox 153 session",
+    "native": "Linux release under an isolated Xvfb session",
+    "viewports": ["1200x950", "500x1000"],
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "This focused round checks the D0 contract and related regressions, not production calibration accuracy."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "novice",
+      "label": "First-time calculator user",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "obtain-default-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Desktop and narrow runs retained Gross 767, Yield 92.36%, and Expected Good approximately 708."]
+        },
+        {
+          "id": "recognize-effective-d0",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The essentials section visibly labels Effective defect density and explains the full-process random-fatal-defect basis without relying on hover."]
+        }
+      ]
+    },
+    {
+      "id": "expert",
+      "label": "Semiconductor process analyst",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "reject-incompatible-baseline-d0",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The visible policy explicitly marks baseline or per-mask values needing a separate process-complexity factor as unsupported."]
+        },
+        {
+          "id": "keep-alpha-as-clustering",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Negative-binomial alpha remains a clustering parameter and no fifth model or implicit complexity factor was introduced."]
+        }
+      ]
+    },
+    {
+      "id": "verifier",
+      "label": "Skeptical numerical verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "audit-json-compatibility",
+          "core": true,
+          "status": "pass",
+          "evidence": ["JSON remains die-yield-report/v1, preserves defect_density_per_cm2, and adds calculation_metadata.defect_density_policy."]
+        },
+        {
+          "id": "audit-visual-report-policy",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The A4 report labels Effective defect density and includes the same policy in Calculation basis without overflow."]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-narrow",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "read-policy-on-narrow-layout",
+          "core": true,
+          "status": "pass",
+          "evidence": ["At 500 by 1000 the policy wraps to two lines without overlapping the input or model selector."]
+        },
+        {
+          "id": "reach-following-controls",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The random-defect selector and all progressive sections remain reachable after the added explanation."]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "numerical-non-regression",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Gross 767, Murphy yield 0.92360878014683934, exposure 0.08, and exact expected good 708.4079343726257 are unchanged."]
+    },
+    {
+      "id": "policy-export-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The shared policy constant is present in both JSON metadata and the visual SVG report."]
+    },
+    {
+      "id": "schema-compatibility",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["No existing JSON field was renamed or removed; the policy field is additive."]
+    },
+    {
+      "id": "neutral-terminology",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The UI, reports, README, and implementation use vendor-neutral process language and contain no semiconductor product identifiers."]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R8-001",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "The defect-density input basis was not auditable",
+      "evidence": ["The UI, API documentation, visual report, JSON metadata, and README now define the supported effective full-process input basis."]
+    },
+    {
+      "id": "R9-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "The README screenshot still showed the previous release",
+      "evidence": ["The focused implementation artifact was complete, but the public composition had not yet been recaptured with the updated UI and 0.2.1 report version."]
+    }
+  ]
+}
