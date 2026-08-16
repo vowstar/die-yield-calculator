@@ -20,7 +20,7 @@ pub fn install(context: &Context) {
     let mut style = (*context.style_of(Theme::Light)).clone();
     style.spacing.item_spacing = vec2(10.0, 9.0);
     style.spacing.button_padding = vec2(12.0, 8.0);
-    style.spacing.interact_size.y = 32.0;
+    style.spacing.interact_size.y = 44.0;
     style.spacing.slider_width = 150.0;
     style.text_styles.insert(
         TextStyle::Heading,

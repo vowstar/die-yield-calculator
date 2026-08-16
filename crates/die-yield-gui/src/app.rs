@@ -7,8 +7,11 @@ use eframe::egui;
 use egui::{Align, Color32, Layout, Margin, RichText, Stroke, vec2};
 use serde::{Deserialize, Serialize};
 
-const WIDE_LAYOUT_THRESHOLD: f32 = 990.0;
-const HEADER_CONTROL_HEIGHT: f32 = 38.0;
+const WIDE_LAYOUT_THRESHOLD: f32 = 960.0;
+const STACKED_CONTROL_THRESHOLD: f32 = 340.0;
+const TOUCH_SAFE_VIEWPORT_THRESHOLD: f32 = 1_008.0;
+const CONTROL_HEIGHT: f32 = 44.0;
+const HEADER_CONTROL_HEIGHT: f32 = CONTROL_HEIGHT;
 const PROJECT_URL: &str = "https://github.com/vowstar/die-yield-calculator";
 pub(crate) const DEFECT_DENSITY_POLICY: &str = "effective full-process random-fatal-defect density; baseline/per-mask values needing a separate process-complexity factor are unsupported";
 const WAFER_PRESETS_MM: [f64; 8] = [76.0, 100.0, 125.0, 150.0, 200.0, 300.0, 330.0, 450.0];
@@ -43,6 +46,23 @@ struct ReportNotice {
 struct NumericFocusState {
     restore: Option<InputField>,
     sync_buffer: Option<InputField>,
+    invalid_text: Option<InputField>,
+    rejected_text: Option<InputField>,
+    touch_editor: Option<TouchNumericEditor>,
+}
+
+#[derive(Debug)]
+struct TouchNumericEditor {
+    field: InputField,
+    label: String,
+    value_text: String,
+    suffix: String,
+    minimum: f64,
+    maximum: f64,
+    scale_to_model: f64,
+    integer: bool,
+    focus_input: bool,
+    error: Option<String>,
 }
 
 /// Interactive die-yield workbench shared by native and browser builds.
@@ -61,6 +81,10 @@ pub struct YieldWorkbench {
     #[serde(skip)]
     report_notice: Option<ReportNotice>,
     #[serde(skip)]
+    focus_report_dialog: bool,
+    #[serde(skip)]
+    restore_report_focus: bool,
+    #[serde(skip)]
     numeric_focus: NumericFocusState,
 }
 
@@ -74,6 +98,8 @@ impl Default for YieldWorkbench {
             validation: None,
             report_open: false,
             report_notice: None,
+            focus_report_dialog: false,
+            restore_report_focus: false,
             numeric_focus: NumericFocusState::default(),
         };
         workbench.recalculate();
@@ -86,6 +112,7 @@ impl YieldWorkbench {
     #[must_use]
     pub fn new(context: &eframe::CreationContext<'_>) -> Self {
         theme::install(&context.egui_ctx);
+        configure_spoken_feedback(&context.egui_ctx);
         let mut workbench: Self = context
             .storage
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
@@ -111,29 +138,39 @@ impl YieldWorkbench {
     }
 
     fn show_header(&mut self, ui: &mut egui::Ui) {
-        let mut reset = false;
-        let mut report = false;
-        if ui.available_width() < 590.0 {
+        let (report_response, reset) = if ui.available_width() < 590.0 {
             ui.vertical(|ui| {
                 ui.horizontal(header_brand);
                 ui.add_space(5.0);
-                ui.horizontal(|ui| {
-                    report |= report_button(ui);
-                    reset |= reset_button(ui);
-                });
-            });
+                ui.horizontal(header_controls).inner
+            })
+            .inner
         } else {
             ui.horizontal(|ui| {
                 header_brand(ui);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    reset |= reset_button(ui);
-                    report |= report_button(ui);
-                });
-            });
+                    let controls_width = 94.0 + ui.spacing().item_spacing.x + 82.0;
+                    ui.allocate_ui_with_layout(
+                        vec2(controls_width, HEADER_CONTROL_HEIGHT),
+                        Layout::left_to_right(Align::Center),
+                        header_controls,
+                    )
+                    .inner
+                })
+                .inner
+            })
+            .inner
+        };
+
+        if self.restore_report_focus {
+            report_response.request_focus();
+            paint_focus_ring(ui, &report_response, 12.0);
+            self.restore_report_focus = false;
         }
-        if report {
+        if report_response.clicked() {
             self.report_open = true;
             self.report_notice = None;
+            self.focus_report_dialog = true;
         }
         if reset {
             *self = Self::default();
@@ -141,20 +178,19 @@ impl YieldWorkbench {
     }
 
     fn show_workspace(&mut self, ui: &mut egui::Ui) {
-        let wide = ui.available_width() >= WIDE_LAYOUT_THRESHOLD;
+        let wide = uses_wide_layout(ui.available_width());
         if wide {
             self.show_summary(ui, true);
             ui.add_space(8.0);
             let available = ui.available_width();
             let settings_width = (available * 0.37).clamp(340.0, 430.0);
-            let visual_width = available - settings_width - 16.0;
+            let visual_width = available - settings_width - ui.spacing().item_spacing.x;
             ui.horizontal_top(|ui| {
                 ui.allocate_ui_with_layout(
                     vec2(visual_width, 0.0),
                     Layout::top_down(Align::Min),
                     |ui| self.show_visual_card(ui),
                 );
-                ui.add_space(6.0);
                 ui.allocate_ui_with_layout(
                     vec2(settings_width, 0.0),
                     Layout::top_down(Align::Min),
@@ -274,7 +310,7 @@ impl YieldWorkbench {
                 let scene = WaferScene::from_analysis(analysis);
                 let palette = WaferPalette::default();
                 ui.with_layout(Layout::top_down(Align::Center), |ui| {
-                    let desired = (ui.available_width() - 4.0).clamp(260.0, 590.0);
+                    let desired = wafer_map_size(ui.available_width());
                     paint_wafer(ui, &scene, desired);
                 });
                 ui.add_space(8.0);
@@ -286,8 +322,8 @@ impl YieldWorkbench {
                     legend(ui, "Scribe lane", palette.scribe);
                 });
                 ui.add_space(4.0);
-                ui.label(
-                    RichText::new(format!(
+                ui.add(
+                    egui::Label::new(RichText::new(format!(
                         "{} gross  •  {} partial  •  {} edge-band  •  {:.4} mm² active area",
                         format_integer(analysis.summary.geometric_usable),
                         format_integer(analysis.summary.partial),
@@ -295,14 +331,16 @@ impl YieldWorkbench {
                         analysis.summary.yield_area_mm2
                     ))
                     .small()
-                    .color(theme::TEXT_MUTED),
+                    .color(theme::TEXT_MUTED))
+                    .wrap(),
                 );
-                ui.label(
-                    RichText::new(format!(
+                ui.add(
+                    egui::Label::new(RichText::new(format!(
                         "Loss locations are illustrative, not predicted. Scribe is shown at ≥{MIN_VISIBLE_SCRIBE_POINTS:.2} pt; the notch marker is not subtracted from geometry."
                     ))
                     .small()
-                    .color(theme::TEXT_MUTED),
+                    .color(theme::TEXT_MUTED))
+                    .wrap(),
                 );
             } else {
                 unavailable_results(ui);
@@ -313,6 +351,7 @@ impl YieldWorkbench {
     fn show_settings_card(&mut self, ui: &mut egui::Ui) {
         let before = self.inputs;
         card().show(ui, |ui| {
+            ui.visuals_mut().collapsing_header_frame = true;
             ui.label(RichText::new("Calculation setup").size(18.0).strong());
             auto_update_note(ui);
             example_setup_notice(ui);
@@ -421,12 +460,7 @@ impl YieldWorkbench {
             yield_model_row(ui, &mut self.inputs.process.yield_model);
 
             section_divider(ui);
-            let manufacturing_header = egui::CollapsingHeader::new(format!(
-                "Manufacturing geometry · {:.3} mm edge · {:.1}/{:.1} μm scribe",
-                self.inputs.wafer.edge_exclusion_mm,
-                self.inputs.die.column_lane_mm * 1_000.0,
-                self.inputs.die.row_lane_mm * 1_000.0
-            ))
+            let manufacturing_header = egui::CollapsingHeader::new("Manufacturing geometry")
             .id_salt("manufacturing_geometry")
             .default_open(false)
             .show(ui, |ui| {
@@ -480,10 +514,7 @@ impl YieldWorkbench {
             keep_focused_visible(&manufacturing_header.header_response);
 
             section_divider(ui);
-            let yield_header = egui::CollapsingHeader::new(format!(
-                "Yield calculation · {}",
-                yield_model_label(self.inputs.process.yield_model)
-            ))
+            let yield_header = egui::CollapsingHeader::new("Yield calculation")
             .id_salt("yield_calculation")
             .default_open(false)
             .show(ui, |ui| {
@@ -595,10 +626,7 @@ impl YieldWorkbench {
             keep_focused_visible(&alignment_header.header_response);
 
             section_divider(ui);
-            let probe_header = egui::CollapsingHeader::new(format!(
-                "Idealized probe estimate · {} × {} sites",
-                self.inputs.probe.columns, self.inputs.probe.rows
-            ))
+            let probe_header = egui::CollapsingHeader::new("Idealized probe estimate")
             .id_salt("probe_estimate")
             .default_open(false)
             .show(ui, |ui| {
@@ -721,6 +749,32 @@ impl YieldWorkbench {
     }
 
     fn show_field_error(&self, ui: &mut egui::Ui, field: InputField) {
+        if self.numeric_focus.invalid_text == Some(field) {
+            let requirement = if field_requires_integer(field) {
+                "a finite whole number"
+            } else {
+                "a finite number"
+            };
+            ui.label(
+                RichText::new(format!(
+                    "Enter {requirement}. This text has not been applied."
+                ))
+                .small()
+                .strong()
+                .color(theme::CORAL),
+            );
+            return;
+        }
+        if self.numeric_focus.rejected_text == Some(field) {
+            ui.label(
+                RichText::new("The invalid entry was not applied; the previous value remains.")
+                    .small()
+                    .strong()
+                    .color(theme::CORAL),
+            );
+            return;
+        }
+
         let Some(error) = self
             .validation
             .as_ref()
@@ -744,31 +798,46 @@ impl YieldWorkbench {
             return;
         }
 
-        let mut open = self.report_open;
-        let mut close = context.input(|input| input.key_pressed(egui::Key::Escape));
         let mut export_format = None;
         let mut print = false;
         let available_width = context.content_rect().width();
         let compact = available_width < 480.0;
-        let dialog_width = (available_width - 32.0).clamp(288.0, 440.0);
-        egui::Window::new("report_export")
-            .id(egui::Id::new("report_export_window"))
-            .open(&mut open)
-            .title_bar(false)
-            .collapsible(false)
-            .resizable(false)
-            .default_width(dialog_width)
-            .min_width(dialog_width)
-            .max_width(dialog_width)
-            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        let dialog_outer_width = (available_width - 32.0).clamp(288.0, 440.0);
+        let dialog_content_width = dialog_outer_width - 36.0;
+        let request_focus = self.focus_report_dialog;
+        let modal = egui::Modal::new(egui::Id::new("report_export_modal"))
+            .frame(card())
             .show(context, |ui| {
+                ui.set_width(dialog_content_width);
+                ui.ctx().accesskit_node_builder(ui.id(), |builder| {
+                    builder.set_role(egui::accesskit::Role::Dialog);
+                    builder.set_label("Export report");
+                    builder.set_modal();
+                });
+                let mut close = false;
+                let mut focus_applied = false;
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("Export report").size(20.0).strong());
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        close |= ui
-                            .add(egui::Button::new(RichText::new("×").size(20.0)).frame(false))
-                            .on_hover_text("Close report export")
-                            .clicked();
+                        let close_response = ui
+                            .add_sized(
+                                [CONTROL_HEIGHT, CONTROL_HEIGHT],
+                                egui::Button::new(RichText::new("×").size(20.0)).frame(false),
+                            )
+                            .on_hover_text("Close report export");
+                        close_response.widget_info(|| {
+                            egui::WidgetInfo::labeled(
+                                egui::WidgetType::Button,
+                                true,
+                                "Close report export",
+                            )
+                        });
+                        if request_focus && !ui.is_sizing_pass() {
+                            close_response.request_focus();
+                            focus_applied = true;
+                        }
+                        paint_focus_ring(ui, &close_response, 8.0);
+                        close |= close_response.clicked();
                     });
                 });
                 ui.label(
@@ -828,7 +897,7 @@ impl YieldWorkbench {
                     egui::Button::new(RichText::new("Print report").strong().color(Color32::WHITE))
                         .fill(theme::ACCENT)
                         .stroke(Stroke::new(1.0, theme::ACCENT))
-                        .min_size(vec2(ui.available_width(), 40.0))
+                        .min_size(vec2(ui.available_width(), CONTROL_HEIGHT))
                         .corner_radius(9),
                 );
                 if print_response.clicked() {
@@ -868,11 +937,17 @@ impl YieldWorkbench {
                             ui.label(RichText::new(&notice.message).small().color(color));
                         });
                 }
+                (close, focus_applied)
             });
-        if close {
-            open = false;
+
+        if modal.inner.1 {
+            self.focus_report_dialog = false;
         }
-        self.report_open = open;
+        if modal.inner.0 || modal.should_close() {
+            self.report_open = false;
+            self.focus_report_dialog = false;
+            self.restore_report_focus = true;
+        }
 
         if let Some(format) = export_format {
             self.export_report(format);
@@ -880,6 +955,179 @@ impl YieldWorkbench {
         if print {
             self.print_report();
         }
+    }
+
+    fn show_touch_numeric_dialog(&mut self, context: &egui::Context) {
+        let Some(mut editor) = self.numeric_focus.touch_editor.take() else {
+            return;
+        };
+
+        let mut cancel = false;
+        let mut apply = false;
+        let available_width = context.content_rect().width();
+        let dialog_outer_width = (available_width - 32.0).clamp(288.0, 420.0);
+        let dialog_content_width = dialog_outer_width - 36.0;
+        let modal = egui::Modal::new(egui::Id::new("touch_numeric_editor_modal"))
+            .frame(card())
+            .show(context, |ui| {
+                ui.set_width(dialog_content_width);
+                ui.ctx().accesskit_node_builder(ui.id(), |builder| {
+                    builder.set_role(egui::accesskit::Role::Dialog);
+                    builder.set_label(format!("Edit {}", editor.label));
+                    builder.set_modal();
+                });
+                ui.label(
+                    RichText::new(format!("Edit {}", editor.label))
+                        .size(20.0)
+                        .strong(),
+                );
+                ui.label(
+                    RichText::new(touch_numeric_range_text(&editor))
+                        .small()
+                        .color(theme::TEXT_MUTED),
+                );
+                ui.add_space(10.0);
+
+                let input_id = ui.make_persistent_id("touch_numeric_value");
+                let submit_from_input = ui.memory(|memory| memory.has_focus(input_id))
+                    && ui.input(|input| input.key_pressed(egui::Key::Enter));
+                let input_response = if editor.suffix.is_empty() {
+                    ui.add_sized(
+                        [ui.available_width(), CONTROL_HEIGHT],
+                        egui::TextEdit::singleline(&mut editor.value_text).id(input_id),
+                    )
+                } else {
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 6.0;
+                        let suffix_width = ui.fonts_mut(|fonts| {
+                            fonts
+                                .layout_no_wrap(
+                                    editor.suffix.clone(),
+                                    egui::TextStyle::Body.resolve(ui.style()),
+                                    theme::TEXT_MUTED,
+                                )
+                                .size()
+                                .x
+                        });
+                        let width =
+                            (ui.available_width() - suffix_width - ui.spacing().item_spacing.x)
+                                .max(80.0);
+                        let response = ui.add_sized(
+                            [width, CONTROL_HEIGHT],
+                            egui::TextEdit::singleline(&mut editor.value_text).id(input_id),
+                        );
+                        ui.label(RichText::new(&editor.suffix).color(theme::TEXT_MUTED));
+                        response
+                    })
+                    .inner
+                };
+                input_response.widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::TextEdit,
+                        true,
+                        format!("{} value", editor.label),
+                    )
+                });
+                if editor.focus_input && !ui.is_sizing_pass() {
+                    input_response.request_focus();
+                    editor.focus_input = false;
+                }
+                apply |= submit_from_input;
+
+                if let Some(error) = &editor.error {
+                    ui.label(RichText::new(error).small().strong().color(theme::CORAL));
+                }
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_sized(
+                            [96.0, CONTROL_HEIGHT],
+                            egui::Button::new("Cancel").corner_radius(9),
+                        )
+                        .clicked()
+                    {
+                        cancel = true;
+                    }
+                    if ui
+                        .add_sized(
+                            [96.0, CONTROL_HEIGHT],
+                            egui::Button::new(
+                                RichText::new("Apply").strong().color(Color32::WHITE),
+                            )
+                            .fill(theme::ACCENT)
+                            .stroke(Stroke::new(1.0, theme::ACCENT))
+                            .corner_radius(9),
+                        )
+                        .clicked()
+                    {
+                        apply = true;
+                    }
+                });
+            });
+
+        if modal.should_close() || cancel {
+            self.numeric_focus.restore = Some(editor.field);
+            return;
+        }
+
+        if apply {
+            match validated_touch_numeric_value(&editor) {
+                Ok(value) => {
+                    self.apply_touch_numeric_value(editor.field, value);
+                    self.numeric_focus.restore = Some(editor.field);
+                    return;
+                }
+                Err(error) => {
+                    editor.error = Some(error);
+                    editor.focus_input = true;
+                }
+            }
+        }
+
+        self.numeric_focus.touch_editor = Some(editor);
+    }
+
+    fn apply_touch_numeric_value(&mut self, field: InputField, value: f64) {
+        match field {
+            InputField::DieWidth => {
+                let old_width = self.inputs.die.width_mm;
+                if self.lock_die_ratio && old_width > 0.0 {
+                    self.inputs.die.height_mm *= value / old_width;
+                }
+                self.inputs.die.width_mm = value;
+            }
+            InputField::DieHeight => {
+                let old_height = self.inputs.die.height_mm;
+                if self.lock_die_ratio && old_height > 0.0 {
+                    self.inputs.die.width_mm *= value / old_height;
+                }
+                self.inputs.die.height_mm = value;
+            }
+            InputField::ColumnLane => {
+                self.inputs.die.column_lane_mm = value;
+                if self.link_scribe_lanes {
+                    self.inputs.die.row_lane_mm = value;
+                }
+            }
+            InputField::RowLane => {
+                self.inputs.die.row_lane_mm = value;
+                if self.link_scribe_lanes {
+                    self.inputs.die.column_lane_mm = value;
+                }
+            }
+            InputField::WaferDiameter => self.inputs.wafer.diameter_mm = value,
+            InputField::EdgeExclusion => self.inputs.wafer.edge_exclusion_mm = value,
+            InputField::DefectDensity => self.inputs.process.defect_density_cm2 = value,
+            InputField::ClusteringAlpha => self.inputs.process.clustering_alpha = value,
+            InputField::OffsetX => self.inputs.process.offset_x_mm = value,
+            InputField::OffsetY => self.inputs.process.offset_y_mm = value,
+            InputField::ProbeColumns => self.inputs.probe.columns = value as u32,
+            InputField::ProbeRows => self.inputs.probe.rows = value as u32,
+            InputField::GridDensity => return,
+        }
+        self.numeric_focus.invalid_text = None;
+        self.numeric_focus.rejected_text = None;
+        self.recalculate();
     }
 
     fn export_report(&mut self, format: report::ReportFormat) {
@@ -937,6 +1185,40 @@ impl YieldWorkbench {
     }
 }
 
+fn touch_numeric_range_text(editor: &TouchNumericEditor) -> String {
+    if editor.minimum == f64::MIN_POSITIVE {
+        format!(
+            "Allowed range: >0 to {}{}",
+            compact_decimal(editor.maximum, 6),
+            editor.suffix
+        )
+    } else {
+        format!(
+            "Allowed range: {} to {}{}",
+            compact_decimal(editor.minimum, 6),
+            compact_decimal(editor.maximum, 6),
+            editor.suffix
+        )
+    }
+}
+
+fn validated_touch_numeric_value(editor: &TouchNumericEditor) -> Result<f64, String> {
+    let Some(value) = parse_numeric_text(&editor.value_text) else {
+        return Err(if editor.integer {
+            "Enter a finite whole number.".to_owned()
+        } else {
+            "Enter a finite number.".to_owned()
+        });
+    };
+    if editor.integer && value.fract() != 0.0 {
+        return Err("Enter a finite whole number.".to_owned());
+    }
+    if value < editor.minimum || value > editor.maximum {
+        return Err("Enter a value within the displayed range.".to_owned());
+    }
+    Ok(value * editor.scale_to_model)
+}
+
 impl eframe::App for YieldWorkbench {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -944,7 +1226,9 @@ impl eframe::App for YieldWorkbench {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let context = ui.ctx().clone();
-        let page_scroll = if self.report_open {
+        handle_spoken_feedback_shortcut(&context);
+        let modal_open = self.report_open || self.numeric_focus.touch_editor.is_some();
+        let page_scroll = if modal_open {
             0.0
         } else {
             let distance = context.content_rect().height() * 0.8;
@@ -961,7 +1245,13 @@ impl eframe::App for YieldWorkbench {
         egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::CANVAS).inner_margin(0))
             .show(ui, |ui| {
-                egui::ScrollArea::vertical()
+                let scroll_output = egui::ScrollArea::vertical()
+                    .id_salt("main_page_scroll")
+                    .scroll_source(if modal_open {
+                        egui::scroll_area::ScrollSource::NONE
+                    } else {
+                        egui::scroll_area::ScrollSource::ALL
+                    })
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if page_scroll != 0.0 {
@@ -988,8 +1278,16 @@ impl eframe::App for YieldWorkbench {
                                 });
                             });
                     });
+                if modal_open
+                    && let Some(state) = egui::scroll_area::State::load(&context, scroll_output.id)
+                {
+                    let mut stationary_state = egui::scroll_area::State::default();
+                    stationary_state.offset = state.offset;
+                    stationary_state.store(&context, scroll_output.id);
+                }
             });
         self.show_report_dialog(&context);
+        self.show_touch_numeric_dialog(&context);
     }
 }
 
@@ -1012,14 +1310,68 @@ fn project_footer(ui: &mut egui::Ui) {
         ui.vertical(|ui| {
             ui.label(notice());
             source_link(ui);
+            spoken_feedback_control(ui);
         });
     } else {
         ui.horizontal(|ui| {
             ui.label(notice());
-            ui.with_layout(Layout::right_to_left(Align::Center), source_link);
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                source_link(ui);
+                spoken_feedback_control(ui);
+            });
         });
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+fn spoken_feedback_control(ui: &mut egui::Ui) {
+    let enabled = ui.ctx().options(|options| options.screen_reader);
+    let label = if enabled {
+        "Spoken feedback: on"
+    } else {
+        "Spoken feedback: off"
+    };
+    let response = ui
+        .add_sized(
+            [168.0, CONTROL_HEIGHT],
+            egui::Button::new(label).selected(enabled).corner_radius(7),
+        )
+        .on_hover_text("Toggle app-spoken keyboard feedback (Ctrl+Alt+S)");
+    if response.clicked() {
+        set_spoken_feedback(ui.ctx(), !enabled);
+    }
+    keep_focused_visible(&response);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn spoken_feedback_control(_ui: &mut egui::Ui) {}
+
+#[cfg(target_arch = "wasm32")]
+fn handle_spoken_feedback_shortcut(context: &egui::Context) {
+    let modifiers = egui::Modifiers::CTRL | egui::Modifiers::ALT;
+    if context.input_mut(|input| input.consume_key(modifiers, egui::Key::S)) {
+        let enabled = context.options(|options| options.screen_reader);
+        set_spoken_feedback(context, !enabled);
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn set_spoken_feedback(context: &egui::Context, enabled: bool) {
+    context.options_mut(|options| options.screen_reader = enabled);
+    context.output_mut(|output| {
+        output.events.push(egui::output::OutputEvent::ValueChanged(
+            egui::WidgetInfo::selected(
+                egui::WidgetType::Checkbox,
+                true,
+                enabled,
+                "Spoken feedback",
+            ),
+        ));
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn handle_spoken_feedback_shortcut(_context: &egui::Context) {}
 
 fn card() -> egui::Frame {
     egui::Frame::new()
@@ -1118,7 +1470,13 @@ fn reset_button(ui: &mut egui::Ui) -> bool {
     response.clicked()
 }
 
-fn report_button(ui: &mut egui::Ui) -> bool {
+fn header_controls(ui: &mut egui::Ui) -> (egui::Response, bool) {
+    let report = report_button(ui);
+    let reset = reset_button(ui);
+    (report, reset)
+}
+
+fn report_button(ui: &mut egui::Ui) -> egui::Response {
     let response = ui
         .add_sized(
             [94.0, HEADER_CONTROL_HEIGHT],
@@ -1136,7 +1494,7 @@ fn report_button(ui: &mut egui::Ui) -> bool {
     paint_report_glyph(ui.painter(), icon_rect, icon_color);
     paint_focus_ring(ui, &response, 12.0);
 
-    response.clicked()
+    response
 }
 
 fn paint_focus_ring(ui: &egui::Ui, response: &egui::Response, radius: f32) {
@@ -1416,6 +1774,26 @@ fn print_hint() -> &'static str {
     "Opens a print-ready PDF in the default viewer for system printing."
 }
 
+#[cfg(target_arch = "wasm32")]
+fn configure_spoken_feedback(context: &egui::Context) {
+    let enabled = web_sys::window()
+        .and_then(|window| window.location().search().ok())
+        .is_some_and(|query| spoken_feedback_requested(&query));
+    context.options_mut(|options| options.screen_reader = enabled);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn configure_spoken_feedback(_context: &egui::Context) {}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn spoken_feedback_requested(query: &str) -> bool {
+    query
+        .trim_start_matches('?')
+        .split('&')
+        .filter_map(|parameter| parameter.split_once('='))
+        .any(|(name, value)| name == "spoken" && matches!(value, "1" | "true"))
+}
+
 fn section_divider(ui: &mut egui::Ui) {
     ui.add_space(6.0);
     ui.separator();
@@ -1437,26 +1815,41 @@ fn input_row_f64_with_precision(
     max_decimals: usize,
     numeric_focus: &mut NumericFocusState,
 ) -> bool {
-    let mut changed = false;
-    ui.push_id(label, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(label).color(theme::TEXT_MUTED));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let response = ui.add_sized(
-                    [128.0, 32.0],
-                    egui::DragValue::new(value)
-                        .range(range)
-                        .speed(speed)
-                        .max_decimals(max_decimals)
-                        .suffix(suffix),
-                );
-                keep_focused_visible(&response);
-                preserve_numeric_focus(field, numeric_focus, &response);
-                changed = response.changed();
-            });
-        });
-    });
-    changed
+    let touch_editor = prefers_touch_numeric_editor(ui);
+    let response = ui
+        .push_id(label, |ui| {
+            labeled_control_row(ui, label, 128.0, |ui, width| {
+                if touch_editor {
+                    touch_numeric_button_f64(
+                        ui,
+                        field,
+                        label,
+                        *value,
+                        range,
+                        suffix,
+                        max_decimals,
+                        width,
+                        numeric_focus,
+                    )
+                } else {
+                    ui.add_sized(
+                        [width, CONTROL_HEIGHT],
+                        egui::DragValue::new(value)
+                            .range(range)
+                            .speed(speed)
+                            .max_decimals(max_decimals)
+                            .suffix(suffix)
+                            .custom_parser(move |text| parse_numeric_text_for_field(field, text))
+                            .update_while_editing(false),
+                    )
+                }
+            })
+        })
+        .inner;
+    keep_focused_visible(&response);
+    track_numeric_text(field, numeric_focus, &response);
+    preserve_numeric_focus(field, numeric_focus, &response);
+    response.changed()
 }
 
 fn input_row_micrometres(
@@ -1492,22 +1885,212 @@ fn input_row_u32(
     range: std::ops::RangeInclusive<u32>,
     numeric_focus: &mut NumericFocusState,
 ) -> bool {
-    let mut changed = false;
-    ui.push_id(label, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(label).color(theme::TEXT_MUTED));
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let response = ui.add_sized(
-                    [128.0, 32.0],
-                    egui::DragValue::new(value).range(range).speed(0.2),
-                );
-                keep_focused_visible(&response);
-                preserve_numeric_focus(field, numeric_focus, &response);
-                changed = response.changed();
-            });
+    let touch_editor = prefers_touch_numeric_editor(ui);
+    let response = ui
+        .push_id(label, |ui| {
+            labeled_control_row(ui, label, 128.0, |ui, width| {
+                if touch_editor {
+                    touch_numeric_button_u32(ui, field, label, *value, range, width, numeric_focus)
+                } else {
+                    ui.add_sized(
+                        [width, CONTROL_HEIGHT],
+                        egui::DragValue::new(value)
+                            .range(range)
+                            .speed(0.2)
+                            .custom_parser(move |text| parse_numeric_text_for_field(field, text))
+                            .update_while_editing(false),
+                    )
+                }
+            })
+        })
+        .inner;
+    keep_focused_visible(&response);
+    track_numeric_text(field, numeric_focus, &response);
+    preserve_numeric_focus(field, numeric_focus, &response);
+    response.changed()
+}
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the touch editor preserves the field's units and validation range"
+)]
+fn touch_numeric_button_f64(
+    ui: &mut egui::Ui,
+    field: InputField,
+    label: &str,
+    value: f64,
+    range: std::ops::RangeInclusive<f64>,
+    suffix: &str,
+    max_decimals: usize,
+    width: f32,
+    numeric_focus: &mut NumericFocusState,
+) -> egui::Response {
+    let value_text = compact_decimal(value, max_decimals);
+    let response = ui.add_sized(
+        [width, CONTROL_HEIGHT],
+        egui::Button::new(format!("{value_text}{suffix}"))
+            .corner_radius(7)
+            .sense(egui::Sense::click()),
+    );
+    if response.clicked() {
+        numeric_focus.touch_editor = Some(TouchNumericEditor {
+            field,
+            label: label.to_owned(),
+            value_text,
+            suffix: suffix.to_owned(),
+            minimum: *range.start(),
+            maximum: *range.end(),
+            scale_to_model: if matches!(field, InputField::ColumnLane | InputField::RowLane) {
+                0.001
+            } else {
+                1.0
+            },
+            integer: false,
+            focus_input: true,
+            error: None,
         });
-    });
-    changed
+    }
+    response
+}
+
+fn touch_numeric_button_u32(
+    ui: &mut egui::Ui,
+    field: InputField,
+    label: &str,
+    value: u32,
+    range: std::ops::RangeInclusive<u32>,
+    width: f32,
+    numeric_focus: &mut NumericFocusState,
+) -> egui::Response {
+    let value_text = value.to_string();
+    let response = ui.add_sized(
+        [width, CONTROL_HEIGHT],
+        egui::Button::new(&value_text)
+            .corner_radius(7)
+            .sense(egui::Sense::click()),
+    );
+    if response.clicked() {
+        numeric_focus.touch_editor = Some(TouchNumericEditor {
+            field,
+            label: label.to_owned(),
+            value_text,
+            suffix: String::new(),
+            minimum: *range.start() as f64,
+            maximum: *range.end() as f64,
+            scale_to_model: 1.0,
+            integer: true,
+            focus_input: true,
+            error: None,
+        });
+    }
+    response
+}
+
+fn labeled_control_row(
+    ui: &mut egui::Ui,
+    label: &str,
+    control_width: f32,
+    add_control: impl FnOnce(&mut egui::Ui, f32) -> egui::Response,
+) -> egui::Response {
+    if stacks_labeled_control(ui.available_width()) {
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            let label_response = ui.label(RichText::new(label).color(theme::TEXT_MUTED));
+            let width = ui.available_width();
+            add_control(ui, width).labelled_by(label_response.id)
+        })
+        .inner
+    } else {
+        ui.horizontal(|ui| {
+            let label_response = ui.label(RichText::new(label).color(theme::TEXT_MUTED));
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                add_control(ui, control_width)
+            })
+            .inner
+            .labelled_by(label_response.id)
+        })
+        .inner
+    }
+}
+
+fn uses_wide_layout(available_width: f32) -> bool {
+    available_width >= WIDE_LAYOUT_THRESHOLD
+}
+
+fn stacks_labeled_control(available_width: f32) -> bool {
+    available_width < STACKED_CONTROL_THRESHOLD
+}
+
+fn prefers_touch_numeric_editor(ui: &egui::Ui) -> bool {
+    uses_touch_safe_viewport(ui.ctx().content_rect().width())
+        || ui.input(|input| input.has_touch_screen())
+        || platform_has_touch_screen()
+}
+
+fn uses_touch_safe_viewport(viewport_width: f32) -> bool {
+    viewport_width < TOUCH_SAFE_VIEWPORT_THRESHOLD
+}
+
+#[cfg(target_arch = "wasm32")]
+fn platform_has_touch_screen() -> bool {
+    web_sys::window().is_some_and(|window| window.navigator().max_touch_points() > 0)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn platform_has_touch_screen() -> bool {
+    false
+}
+
+fn wafer_map_size(available_width: f32) -> f32 {
+    (available_width - 4.0).clamp(240.0, 590.0)
+}
+
+fn track_numeric_text(
+    field: InputField,
+    numeric_focus: &mut NumericFocusState,
+    response: &egui::Response,
+) {
+    if response.has_focus() {
+        let invalid = response
+            .ctx
+            .data(|data| data.get_temp::<String>(response.id))
+            .is_some_and(|text| parse_numeric_text_for_field(field, &text).is_none());
+        if invalid {
+            numeric_focus.invalid_text = Some(field);
+            numeric_focus.rejected_text = None;
+        } else {
+            if numeric_focus.invalid_text == Some(field) {
+                numeric_focus.invalid_text = None;
+            }
+            if numeric_focus.rejected_text == Some(field) {
+                numeric_focus.rejected_text = None;
+            }
+        }
+    } else if response.lost_focus() && numeric_focus.invalid_text == Some(field) {
+        numeric_focus.invalid_text = None;
+        numeric_focus.rejected_text = Some(field);
+    }
+}
+
+fn parse_numeric_text_for_field(field: InputField, text: &str) -> Option<f64> {
+    let value = parse_numeric_text(text)?;
+    (!field_requires_integer(field) || value.fract() == 0.0).then_some(value)
+}
+
+fn field_requires_integer(field: InputField) -> bool {
+    matches!(field, InputField::ProbeColumns | InputField::ProbeRows)
+}
+
+fn parse_numeric_text(text: &str) -> Option<f64> {
+    let normalized: String = text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .map(|character| if character == '−' { '-' } else { character })
+        .collect();
+    normalized
+        .parse::<f64>()
+        .ok()
+        .filter(|value| value.is_finite())
 }
 
 fn preserve_numeric_focus(
@@ -1531,28 +2114,34 @@ fn preserve_numeric_focus(
 }
 
 fn yield_model_row(ui: &mut egui::Ui, model: &mut YieldModel) {
-    ui.horizontal(|ui| {
-        ui.label(RichText::new("Random-defect model").color(theme::TEXT_MUTED));
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let response = egui::ComboBox::from_id_salt("yield_model_selector")
-                .selected_text(yield_model_label(*model))
-                .width(178.0)
-                .show_ui(ui, |ui| {
-                    for candidate in [
-                        YieldModel::MurphyTriangular,
-                        YieldModel::Poisson,
-                        YieldModel::NegativeBinomial,
-                        YieldModel::Seeds,
-                    ] {
-                        let response =
-                            ui.selectable_value(model, candidate, yield_model_label(candidate));
-                        keep_focused_visible(&response);
-                    }
-                })
-                .response;
-            keep_focused_visible(&response);
-        });
+    let response = labeled_control_row(ui, "Random-defect model", 178.0, |ui, width| {
+        ui.allocate_ui_with_layout(
+            vec2(width, CONTROL_HEIGHT),
+            Layout::top_down(Align::Min),
+            |ui| {
+                let response = egui::ComboBox::from_id_salt("yield_model_selector")
+                    .selected_text(yield_model_label(*model))
+                    .width(width)
+                    .show_ui(ui, |ui| {
+                        for candidate in [
+                            YieldModel::MurphyTriangular,
+                            YieldModel::Poisson,
+                            YieldModel::NegativeBinomial,
+                            YieldModel::Seeds,
+                        ] {
+                            let response =
+                                ui.selectable_value(model, candidate, yield_model_label(candidate));
+                            keep_focused_visible(&response);
+                        }
+                    })
+                    .response;
+                keep_focused_visible(&response);
+                response
+            },
+        )
+        .inner
     });
+    keep_focused_visible(&response);
 }
 
 fn yield_model_label(model: YieldModel) -> &'static str {
@@ -1673,7 +2262,9 @@ mod tests {
             (450.0, 5.0, 24.0, 18.0, 1.0, 0.0, 8, 12),
         ];
 
-        for width in [360.0, 480.0, 820.0, 1440.0] {
+        for width in [
+            320.0, 360.0, 390.0, 412.0, 768.0, 820.0, 960.0, 976.0, 1132.0, 1440.0,
+        ] {
             for (diameter, density, die_width, die_height, column_lane, row_lane, columns, rows) in
                 cases
             {
@@ -1687,6 +2278,8 @@ mod tests {
                 workbench.inputs.die.row_lane_mm = row_lane;
                 workbench.inputs.probe.columns = columns;
                 workbench.inputs.probe.rows = rows;
+                workbench.inputs.process.yield_model = YieldModel::NegativeBinomial;
+                workbench.inputs.process.clustering_alpha = 2.5;
                 workbench.recalculate();
                 workbench.report_open = true;
                 assert!(workbench.analysis.is_some());
@@ -1707,6 +2300,280 @@ mod tests {
                 output.drop_without_applying_deltas();
             }
         }
+    }
+
+    #[test]
+    fn responsive_breakpoints_match_page_and_control_constraints() {
+        assert!(!uses_wide_layout(959.99));
+        assert!(uses_wide_layout(960.0));
+        assert!(uses_wide_layout(976.0));
+
+        assert!(stacks_labeled_control(339.99));
+        assert!(!stacks_labeled_control(340.0));
+
+        assert!(uses_touch_safe_viewport(1_007.99));
+        assert!(!uses_touch_safe_viewport(1_008.0));
+
+        assert_eq!(wafer_map_size(256.0), 252.0);
+        assert_eq!(wafer_map_size(594.0), 590.0);
+    }
+
+    #[test]
+    fn narrow_numeric_controls_do_not_capture_drag_gestures() {
+        let context = egui::Context::default();
+        theme::install(&context);
+        let mut focus = NumericFocusState::default();
+        let mut senses_drag = true;
+
+        context
+            .run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(320.0, 568.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    assert!(prefers_touch_numeric_editor(ui));
+                    let response = touch_numeric_button_f64(
+                        ui,
+                        InputField::DieWidth,
+                        "Active width",
+                        10.0,
+                        0.25..=450.0,
+                        " mm",
+                        6,
+                        240.0,
+                        &mut focus,
+                    );
+                    senses_drag = response.sense.senses_drag();
+                },
+            )
+            .drop_without_applying_deltas();
+
+        assert!(!senses_drag);
+    }
+
+    #[test]
+    fn narrow_desktop_column_keeps_inline_numeric_editing() {
+        let context = egui::Context::default();
+        theme::install(&context);
+
+        context
+            .run_ui(
+                RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1024.0, 768.0))),
+                    ..Default::default()
+                },
+                |ui| {
+                    ui.allocate_ui(vec2(300.0, 100.0), |ui| {
+                        assert!(stacks_labeled_control(ui.available_width()));
+                        assert!(!prefers_touch_numeric_editor(ui));
+                    });
+                },
+            )
+            .drop_without_applying_deltas();
+    }
+
+    #[test]
+    fn touch_numeric_validation_preserves_units_and_integer_semantics() {
+        let editor = TouchNumericEditor {
+            field: InputField::ColumnLane,
+            label: "Column scribe".to_owned(),
+            value_text: "250".to_owned(),
+            suffix: " μm".to_owned(),
+            minimum: 0.0,
+            maximum: 10_000.0,
+            scale_to_model: 0.001,
+            integer: false,
+            focus_input: false,
+            error: None,
+        };
+        assert_eq!(validated_touch_numeric_value(&editor), Ok(0.25));
+
+        let out_of_range = TouchNumericEditor {
+            value_text: "10001".to_owned(),
+            ..editor
+        };
+        assert_eq!(
+            validated_touch_numeric_value(&out_of_range),
+            Err("Enter a value within the displayed range.".to_owned())
+        );
+
+        let integer_editor = TouchNumericEditor {
+            field: InputField::ProbeColumns,
+            label: "Columns per step".to_owned(),
+            value_text: "2.5".to_owned(),
+            suffix: String::new(),
+            minimum: 1.0,
+            maximum: 128.0,
+            scale_to_model: 1.0,
+            integer: true,
+            focus_input: false,
+            error: None,
+        };
+        assert_eq!(
+            validated_touch_numeric_value(&integer_editor),
+            Err("Enter a finite whole number.".to_owned())
+        );
+    }
+
+    #[test]
+    fn touch_numeric_apply_preserves_linked_geometry() {
+        let mut workbench = YieldWorkbench {
+            lock_die_ratio: true,
+            link_scribe_lanes: true,
+            ..Default::default()
+        };
+
+        workbench.apply_touch_numeric_value(InputField::DieWidth, 20.0);
+        assert_eq!(workbench.inputs.die.width_mm, 20.0);
+        assert_eq!(workbench.inputs.die.height_mm, 16.0);
+
+        workbench.apply_touch_numeric_value(InputField::ColumnLane, 0.25);
+        assert_eq!(workbench.inputs.die.column_lane_mm, 0.25);
+        assert_eq!(workbench.inputs.die.row_lane_mm, 0.25);
+        assert!(workbench.analysis.is_some());
+    }
+
+    #[test]
+    fn numeric_entry_validation_matches_drag_value_semantics() {
+        for valid in ["10", " 10.25 ", "−3.5", "1 000", "2e-3"] {
+            assert!(
+                parse_numeric_text(valid).is_some(),
+                "{valid:?} should be valid"
+            );
+        }
+        for invalid in ["", "-", "abc", "NaN", "inf", "1.2.3"] {
+            assert!(
+                parse_numeric_text(invalid).is_none(),
+                "{invalid:?} should be invalid"
+            );
+        }
+
+        assert_eq!(
+            parse_numeric_text_for_field(InputField::ProbeColumns, "2"),
+            Some(2.0)
+        );
+        assert_eq!(
+            parse_numeric_text_for_field(InputField::ProbeColumns, "2.5"),
+            None
+        );
+        assert_eq!(
+            parse_numeric_text_for_field(InputField::DieWidth, "NaN"),
+            None
+        );
+    }
+
+    #[test]
+    fn spoken_feedback_query_requires_an_explicit_enabled_value() {
+        assert!(spoken_feedback_requested("?spoken=1"));
+        assert!(spoken_feedback_requested("?mode=compact&spoken=true"));
+        assert!(!spoken_feedback_requested(""));
+        assert!(!spoken_feedback_requested("?spoken=0"));
+        assert!(!spoken_feedback_requested("?unspoken=1"));
+    }
+
+    #[test]
+    fn theme_uses_touch_sized_interactions() {
+        let context = egui::Context::default();
+        theme::install(&context);
+        assert_eq!(
+            context.style_of(egui::Theme::Light).spacing.interact_size.y,
+            CONTROL_HEIGHT
+        );
+    }
+
+    #[test]
+    fn report_modal_exposes_dialog_semantics_and_initial_close_focus() {
+        let context = egui::Context::default();
+        context.enable_accesskit();
+        theme::install(&context);
+        let mut workbench = YieldWorkbench {
+            report_open: true,
+            focus_report_dialog: true,
+            ..Default::default()
+        };
+
+        let raw_input = || RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(500.0, 800.0))),
+            ..Default::default()
+        };
+        context
+            .run_ui(raw_input(), |ui| workbench.show_report_dialog(ui.ctx()))
+            .drop_without_applying_deltas();
+        let output = context.run_ui(raw_input(), |ui| workbench.show_report_dialog(ui.ctx()));
+
+        let focused = context
+            .memory(|memory| memory.focused())
+            .expect("the close control should receive initial focus");
+        assert!(context.memory(|memory| memory.top_modal_layer().is_some()));
+
+        let update = output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .expect("AccessKit output should be enabled");
+        let focused_node = update
+            .nodes
+            .iter()
+            .find(|(id, _)| *id == focused.accesskit_id())
+            .map(|(_, node)| node)
+            .expect("the focused control should have an AccessKit node");
+        assert_eq!(focused_node.label(), Some("Close report export"));
+        assert!(update.nodes.iter().any(|(_, node)| {
+            node.role() == egui::accesskit::Role::Dialog
+                && node.label() == Some("Export report")
+                && node.is_modal()
+        }));
+
+        output.drop_without_applying_deltas();
+    }
+
+    #[test]
+    fn touch_numeric_editor_applies_with_enter() {
+        let context = egui::Context::default();
+        theme::install(&context);
+        let mut workbench = YieldWorkbench::default();
+        workbench.numeric_focus.touch_editor = Some(TouchNumericEditor {
+            field: InputField::DieWidth,
+            label: "Active width".to_owned(),
+            value_text: "20".to_owned(),
+            suffix: " mm".to_owned(),
+            minimum: 0.25,
+            maximum: 450.0,
+            scale_to_model: 1.0,
+            integer: false,
+            focus_input: true,
+            error: None,
+        });
+
+        let raw_input = |events| RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(320.0, 568.0))),
+            events,
+            ..Default::default()
+        };
+        for _ in 0..2 {
+            context
+                .run_ui(raw_input(Vec::new()), |ui| {
+                    workbench.show_touch_numeric_dialog(ui.ctx());
+                })
+                .drop_without_applying_deltas();
+        }
+
+        context
+            .run_ui(
+                raw_input(vec![egui::Event::Key {
+                    key: egui::Key::Enter,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }]),
+                |ui| workbench.show_touch_numeric_dialog(ui.ctx()),
+            )
+            .drop_without_applying_deltas();
+
+        assert!(workbench.numeric_focus.touch_editor.is_none());
+        assert_eq!(workbench.inputs.die.width_mm, 20.0);
     }
 
     #[test]
