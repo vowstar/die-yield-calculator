@@ -4,7 +4,7 @@ Rust wafer die-yield and probe-planning calculator. Native and WebAssembly GUI.
 
 **[Open Yield Studio in your browser](https://vowstar.github.io/die-yield-calculator/)**
 
-![Yield Studio showing Gross Dies per Wafer, estimated yield, expected good dies, wafer map, effective defect-density guidance, and an exported analysis report](https://github.com/user-attachments/assets/e784a1aa-66ca-4b33-8ec3-abd13525f227)
+![Yield Studio showing Gross Dies per Wafer, estimated yield, expected good dies, responsive calculation setup, wafer map, and an exported analysis report](https://github.com/user-attachments/assets/b87dd002-635a-4f42-aa95-a011917ea916)
 
 ## Features
 
