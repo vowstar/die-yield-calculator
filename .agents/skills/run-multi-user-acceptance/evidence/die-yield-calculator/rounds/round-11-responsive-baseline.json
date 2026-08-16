@@ -1,0 +1,264 @@
+{
+  "round": "round-11-responsive-baseline",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "4f838e2a0f99a6ce570ada38d842b33378c7441d",
+    "version": "0.2.1"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "browser": "isolated scripted Chrome 153 sessions with touch and keyboard input",
+    "viewports": [
+      "320x568",
+      "360x800",
+      "375x667",
+      "390x844",
+      "412x915",
+      "744x1133",
+      "768x1024",
+      "820x1180",
+      "1024x768",
+      "1180x820"
+    ],
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "No real phone, tablet, on-screen keyboard, or screen reader participated in this baseline.",
+      "CDP device-pixel-ratio overrides were excluded because their canvas backing-store measurements were inconsistent; process-level high-DPI checks rendered correctly."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "phone-novice",
+      "label": "First-time calculator user on a phone",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "orient",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The brand, Report and Reset actions, and primary result hierarchy were visible from 320 to 412 CSS pixels."]
+        },
+        {
+          "id": "understand-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross 767, Murphy yield 92.36%, and expected good approximately 708 were visible and correctly distinguished."]
+        },
+        {
+          "id": "edit-effective-d0",
+          "core": true,
+          "status": "friction",
+          "evidence": ["The D0 control was reachable, but its label clipped at 320 and 360 pixels and scripted mobile entry was timing-sensitive."]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Invalid alphabetic D0 text remained visible without an inline error and reverted on blur."]
+        },
+        {
+          "id": "change-model",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The phone workflow selected Poisson and observed the corresponding result."]
+        },
+        {
+          "id": "export-json",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The compact Report dialog fit at 320 pixels and downloaded JSON successfully."]
+        },
+        {
+          "id": "rotate-preserve-state",
+          "core": true,
+          "status": "pass",
+          "evidence": ["A 390x844 to 844x390 to portrait cycle preserved state and restored the initial rendering."]
+        }
+      ]
+    },
+    {
+      "id": "tablet-expert",
+      "label": "Domain expert on a tablet",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "understand-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross, statistical yield, and expected-good results remained prominent in all tablet viewports."]
+        },
+        {
+          "id": "edit-precise-scenario",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Precise dimensions and D0 were accepted, but common controls were only 32 CSS pixels high."]
+        },
+        {
+          "id": "inspect-advanced-details",
+          "core": true,
+          "status": "friction",
+          "evidence": ["Disclosure rows opened only when their label-sized hit region was tapped; row whitespace was inactive."]
+        },
+        {
+          "id": "configure-negative-binomial",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Negative binomial alpha 2.5 and its full-precision details were available in tablet portrait layouts."]
+        },
+        {
+          "id": "inspect-map",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The large map and all five legend categories were clear in tablet portrait layouts."]
+        },
+        {
+          "id": "export-reproducible-report",
+          "core": true,
+          "status": "pass",
+          "evidence": ["JSON and SVG exports matched the modified inputs, model, alpha, assumptions, and results."]
+        },
+        {
+          "id": "rotate-preserve-state",
+          "core": true,
+          "status": "pass",
+          "evidence": ["A 744x1133 to 1180x820 to 768x1024 cycle preserved inputs, expanded sections, and outputs."]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-constrained",
+      "label": "Keyboard and assistive-technology verifier",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "navigate-and-read",
+          "core": true,
+          "status": "fail",
+          "evidence": ["Visual Tab navigation worked, but the browser accessibility tree exposed an unnamed canvas and unnamed edit agent rather than labeled results and controls."]
+        },
+        {
+          "id": "recover-invalid-input",
+          "core": true,
+          "status": "fail",
+          "evidence": ["After an invalid submitted value, focus returned to the canvas and the scripted keyboard recovery path did not complete."]
+        },
+        {
+          "id": "configure-negative-binomial",
+          "core": true,
+          "status": "fail",
+          "evidence": ["At 320 pixels the negative-binomial alpha field was placed completely outside the visible card."]
+        },
+        {
+          "id": "export-json-in-modal",
+          "core": true,
+          "status": "friction",
+          "evidence": ["JSON export succeeded, but focus traversed 26 background controls before reaching the modal format buttons."]
+        },
+        {
+          "id": "resize-without-clipping",
+          "core": true,
+          "status": "fail",
+          "evidence": ["Internal canvas content clipped at 320 pixels and the 1180x820 wide layout clipped its right settings edge."]
+        },
+        {
+          "id": "zoom-and-high-dpi",
+          "core": false,
+          "status": "friction",
+          "evidence": ["Process-level high-DPI rendering passed, but a full browser text-zoom path was not completed."]
+        },
+        {
+          "id": "verify-result-and-export",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Independent geometry and Murphy oracles matched Gross 767, yield 0.9236087801468398, and exact expectation 708.4079343726261 in the UI and JSON."]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-geometry",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["An independent active-rectangle corner-fit enumerator produced Gross 767 with 147 mm usable radius and 10.12 by 8.12 mm pitch."]
+    },
+    {
+      "id": "default-murphy-yield",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The independent Murphy formula produced 0.9236087801468398 and expected good 708.4079343726261."]
+    },
+    {
+      "id": "negative-binomial-tablet-case",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["The modified scenario independently produced Gross 709, yield 0.9001129656572019, and expectation 638.1800926509561."]
+    },
+    {
+      "id": "report-parity",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Phone and tablet JSON and SVG exports preserved inputs, policies, model metadata, and full-precision results."]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R11-001",
+      "severity": "major",
+      "status": "open",
+      "summary": "The negative-binomial alpha field is not visible at 320 CSS pixels",
+      "evidence": ["Observed 320x568 negative-binomial walkthrough."]
+    },
+    {
+      "id": "R11-002",
+      "severity": "major",
+      "status": "open",
+      "summary": "The browser accessibility tree does not expose labeled calculator semantics",
+      "evidence": ["Chrome accessibility-tree inspection exposed an unnamed canvas and edit agent only."]
+    },
+    {
+      "id": "R11-003",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "The Report dialog does not confine keyboard focus",
+      "evidence": ["Twenty-six Tab presses traversed background controls before reaching JSON."]
+    },
+    {
+      "id": "R11-004",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Phone labels and map metadata clip inside the fixed canvas",
+      "evidence": ["Observed at 320 and 360 CSS pixels despite DOM scroll width matching the viewport."]
+    },
+    {
+      "id": "R11-005",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Tablet breakpoints waste 1024 pixels and clip the 1180-pixel wide layout",
+      "evidence": ["1024x768 remained single-column; 1180x820 clipped the settings card and footer at the right edge."]
+    },
+    {
+      "id": "R11-006",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Touch and disclosure targets are smaller than the intended tablet and phone comfort target",
+      "evidence": ["Common numeric controls were 32 pixels, header controls 38 pixels, and disclosure whitespace was not clickable."]
+    },
+    {
+      "id": "R10-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Scenario comparison has no retained baseline or explicit delta",
+      "evidence": ["This pre-existing non-core expert efficiency gap is unchanged and outside the responsive repair scope."]
+    }
+  ]
+}

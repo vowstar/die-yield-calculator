@@ -1,0 +1,329 @@
+{
+  "round": "round-12-responsive-focused",
+  "artifact": {
+    "name": "Yield Studio",
+    "revision": "4f838e2a0f99a6ce570ada38d842b33378c7441d+responsive-working-tree",
+    "version": "0.2.1",
+    "index_sha256": "d4ff0e3e5654a3b0487fd1580bef4e9de204cfd0fba96f470259aba877e53ad8",
+    "wasm_sha256": "546678a38a6ea95d05ca217c7dd1582506b7c90b888c830afd217285575ab29e"
+  },
+  "method": {
+    "type": "simulated_cognitive_walkthrough",
+    "real_participants": 0,
+    "browser": "isolated scripted Firefox 153 and Chrome 153 sessions with touch, mouse, and keyboard input",
+    "viewports": [
+      "320x568",
+      "360x800",
+      "375x667",
+      "390x844",
+      "412x915",
+      "768x1024",
+      "820x1180",
+      "1024x768",
+      "1180x820",
+      "1440x900"
+    ],
+    "limitations": [
+      "Persona satisfaction is a task-completion proxy, not measured user sentiment.",
+      "No real phone, tablet, on-screen keyboard, VoiceOver, TalkBack, or other screen reader participated.",
+      "The standard browser accessibility tree does not enumerate internal egui canvas controls; app-spoken keyboard feedback is an alternative, not equivalent support.",
+      "CDP device-pixel-ratio overrides were excluded after producing an incorrect backing-store size; process-level high-DPI rendering was used instead.",
+      "Most full viewport and report paths ran on the immediately preceding frozen build; the final parser-only build repeated touch scrolling, Enter submission, negative-binomial input, and adversarial desktop parsing."
+    ]
+  },
+  "gates": {
+    "minimum_persona_satisfaction": 0.8,
+    "minimum_task_pass_rate": 0.8
+  },
+  "personas": [
+    {
+      "id": "phone-novice",
+      "label": "First-time calculator user on a phone",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "understand-primary-results",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Gross 767, Murphy yield 92.36%, and approximately 708 expected good dies remain distinct and readable at 320 through 412 CSS pixels."]
+        },
+        {
+          "id": "scroll-from-numeric-field",
+          "core": true,
+          "status": "pass",
+          "evidence": ["A vertical W3C touch gesture starting on Active width scrolls the page while preserving 10 mm and does not open the editor."]
+        },
+        {
+          "id": "edit-and-recover",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The touch editor applies 10.25 with Enter, rejects 0.1 outside the displayed range, and preserves values on Cancel or Escape."]
+        },
+        {
+          "id": "configure-negative-binomial",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Negative binomial and alpha 2.5 are visible and editable at 320 pixels, producing 92.43% and approximately 709 good dies."]
+        },
+        {
+          "id": "rotate-and-reach-map",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Portrait-landscape-portrait preserves state, and the map, five legend categories, and footer remain reachable without horizontal overflow."]
+        },
+        {
+          "id": "export-report",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The compact Report modal fits at 320 pixels and the JSON export path remains keyboard-operable."]
+        }
+      ]
+    },
+    {
+      "id": "tablet-expert",
+      "label": "Domain expert on a touch tablet",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "use-portrait-and-landscape",
+          "core": true,
+          "status": "pass",
+          "evidence": ["768x1024 and 820x1180 use the intended single column; 1180x820 uses two complete columns without right-edge clipping."]
+        },
+        {
+          "id": "use-touch-safe-fields",
+          "core": true,
+          "status": "pass",
+          "evidence": ["At 820x1180 a tap opens the numeric editor, while a swipe beginning on the same field scrolls without modifying diameter, dimensions, or D0."]
+        },
+        {
+          "id": "inspect-disclosures",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The full disclosure row is a 44-point target, including its right-hand whitespace."]
+        },
+        {
+          "id": "verify-negative-binomial",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Alpha 2.5 gives exact yield 0.924274043305782 and expectation 708.9181912155348, matching an independent formula oracle."]
+        },
+        {
+          "id": "inspect-map-and-report",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The map, metadata, full A4 report, and JSON model metadata remain complete in tablet workflows."]
+        }
+      ]
+    },
+    {
+      "id": "desktop-precision",
+      "label": "Mouse user entering precise desktop values",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "use-1024-layout",
+          "core": true,
+          "status": "pass",
+          "evidence": ["1024x768 uses two columns without clipping and retains inline DragValue editing when no touch capability is present."]
+        },
+        {
+          "id": "enter-valid-precision",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Changing Active width from 10 to 12.5 applies normally and changes Gross from 767 to 605."]
+        },
+        {
+          "id": "reject-non-finite-values",
+          "core": true,
+          "status": "pass",
+          "evidence": ["NaN, infinity, and alphabetic text leave Active width at 10 and Gross at 767, with an accurate invalid-entry message."]
+        },
+        {
+          "id": "reject-fractional-probe-count",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Probe columns rejects 2.5 as not a finite whole number and preserves the prior value 4."]
+        }
+      ]
+    },
+    {
+      "id": "keyboard-constrained",
+      "label": "Keyboard user on a constrained viewport",
+      "required_core_gate": true,
+      "tasks": [
+        {
+          "id": "use-report-modal",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Report initially focuses Close, confines forward and reverse Tab to six modal actions, blocks background scrolling, and closes with Escape or backdrop activation."]
+        },
+        {
+          "id": "restore-report-focus",
+          "core": true,
+          "status": "pass",
+          "evidence": ["After closing, focus returns to Report and Enter reopens the same modal."]
+        },
+        {
+          "id": "submit-numeric-editor",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Enter applies a valid value directly from the focused touch-safe numeric editor."]
+        },
+        {
+          "id": "toggle-spoken-feedback",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Ctrl+Alt+S toggles app-spoken feedback from the canvas, and the visible footer control exposes the same state."]
+        }
+      ]
+    },
+    {
+      "id": "assistive-technology-proxy",
+      "label": "Standard browser accessibility-tree verifier",
+      "required_core_gate": false,
+      "tasks": [
+        {
+          "id": "identify-entry-point",
+          "core": true,
+          "status": "pass",
+          "evidence": ["The canvas has an application role, accessible name, keyboard instructions, and an always-visible spoken-feedback control inside the app."]
+        },
+        {
+          "id": "operate-by-keyboard",
+          "core": true,
+          "status": "pass",
+          "evidence": ["Visual keyboard navigation, editing, disclosure, model selection, and report export paths complete without a pointer."]
+        },
+        {
+          "id": "receive-app-spoken-output",
+          "core": true,
+          "status": "pass",
+          "evidence": ["A speechSynthesis interception receives the enabled-state announcement and subsequent focused-widget output."]
+        },
+        {
+          "id": "enumerate-native-control-semantics",
+          "core": false,
+          "status": "friction",
+          "evidence": ["eframe 0.36 Web does not forward its internal AccessKit tree to browser accessibility APIs, so standard screen readers cannot enumerate every canvas control."]
+        }
+      ]
+    }
+  ],
+  "correctness": [
+    {
+      "id": "default-geometry-and-yield",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["An independent rectangle-grid and Murphy oracle reproduces Gross 767, yield 0.92360878014683934, and exact expectation 708.4079343726257."]
+    },
+    {
+      "id": "negative-binomial-oracle",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["For alpha 2.5 and exposure 0.08, the independent formula reproduces yield 0.924274043305782 and expectation 708.9181912155348."]
+    },
+    {
+      "id": "touch-value-preservation",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Phone and tablet touch swipes starting over numeric fields scroll the page without changing the model or opening an editor."]
+    },
+    {
+      "id": "invalid-text-preservation",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["NaN, infinity, alphabetic text, out-of-range values, and fractional integer fields are rejected without modifying the prior valid result."]
+    },
+    {
+      "id": "viewport-containment",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Every tested phone and tablet has canvas, body, and document dimensions equal to its CSS viewport and no horizontal overflow."]
+    },
+    {
+      "id": "report-modal-isolation",
+      "required": true,
+      "status": "pass",
+      "severity": "major",
+      "evidence": ["Keyboard focus and scroll input remain inside Report until explicit close, after which focus returns to the invoking action."]
+    }
+  ],
+  "findings": [
+    {
+      "id": "R11-001",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "The negative-binomial alpha field was not visible at 320 CSS pixels",
+      "evidence": ["Alpha 2.5 is visible, editable, and independently verified on the final focused phone artifact."]
+    },
+    {
+      "id": "R11-002",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "The browser canvas had no labeled accessibility entry point or usable spoken-feedback path",
+      "evidence": ["The canvas now has a role, name, instructions, keyboard shortcut, and visible app-spoken control; the remaining control-level Web AX limitation is recorded separately."]
+    },
+    {
+      "id": "R11-003",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "The Report dialog did not confine keyboard focus",
+      "evidence": ["A real modal now traps forward and reverse Tab, freezes background scroll, closes with Escape or backdrop activation, and restores focus."]
+    },
+    {
+      "id": "R11-004",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "Phone labels and map metadata clipped inside the fixed canvas",
+      "evidence": ["Labels stack, metadata wraps, and the map contracts at 320 through 412 CSS pixels without horizontal overflow."]
+    },
+    {
+      "id": "R11-005",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "Tablet breakpoints wasted 1024 pixels and clipped the 1180-pixel layout",
+      "evidence": ["1024 and 1180 landscape layouts now use two complete columns; tablet portrait layouts remain single-column."]
+    },
+    {
+      "id": "R11-006",
+      "severity": "moderate",
+      "status": "resolved",
+      "summary": "Touch and disclosure targets were smaller than the intended comfort target",
+      "evidence": ["Interactive controls and disclosure rows now use a 44-point minimum height and full-row disclosure hit regions."]
+    },
+    {
+      "id": "R12-001",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "A touch swipe beginning on a numeric field changed the value instead of scrolling",
+      "evidence": ["Touch-safe click-only fields separate tap editing from page drag gestures on constrained and touch-capable viewports."]
+    },
+    {
+      "id": "R12-002",
+      "severity": "major",
+      "status": "resolved",
+      "summary": "Desktop NaN input silently changed a dimension while claiming it was rejected",
+      "evidence": ["Field-aware finite parsers reject NaN, infinity, alphabetic text, and fractional probe counts without changing the model."]
+    },
+    {
+      "id": "R12-003",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Standard Web accessibility APIs do not enumerate internal egui canvas controls",
+      "evidence": ["The accessible canvas entry point, complete keyboard path, and optional app-spoken output reduce the gap but are not equivalent to a semantic DOM or Web AccessKit adapter."]
+    },
+    {
+      "id": "R10-001",
+      "severity": "moderate",
+      "status": "open",
+      "summary": "Scenario comparison has no retained baseline or explicit delta",
+      "evidence": ["Deterministic JSON supports manual comparison, but the application still does not retain two named scenarios side by side."]
+    }
+  ]
+}

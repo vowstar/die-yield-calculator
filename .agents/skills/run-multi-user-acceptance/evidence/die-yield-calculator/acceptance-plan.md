@@ -56,6 +56,28 @@ gate passes with 4/4 simulated personas, 8/8 persona tasks, 8/8 correctness case
 and no open blocker or major finding
 ([round-10-v0.2.1-release.json](rounds/round-10-v0.2.1-release.json)).
 
+Rounds 11–13 audit constrained-width and input-safety risks. The tagged v0.2.1
+baseline exposed clipped phone controls, inefficient tablet breakpoints, small
+touch targets, background focus behind Report, and touch gestures that could
+change a number while the user intended to scroll. The focused implementation
+uses responsive row stacking, 44-point interactions, click-only touch fields
+with an explicit editor, a true modal report workflow, and finite field-aware
+parsers. Standard browser accessibility APIs still cannot enumerate every egui
+canvas control; the labeled canvas, complete keyboard path, and optional
+app-spoken feedback are documented alternatives, not a claim of equivalent
+screen-reader support. Round 12 passes with 4/5 simulated personas satisfied,
+22/23 persona tasks passed, and every required correctness case passed
+([round-12-responsive-focused.json](rounds/round-12-responsive-focused.json)).
+
+Round 13 freezes the v0.2.2 artifact and repeats the numerical, report-parity,
+and release gates on the hash-frozen trunk build. It passes with 4/5 simulated
+personas satisfied, 22/23 persona tasks passed, and 8/8 required correctness
+cases passed. The native release report and the browser export are byte-identical
+(sha256 fe01f45174017be68988fb986fe99f1076534a880653601f5fb2b9e8aff9e4cc), and
+`trunk build --release` reproduces the frozen WASM byte-for-byte. No blocker or
+major finding remains open
+([round-13-responsive-final.json](rounds/round-13-responsive-final.json)).
+
 ## Implementation slices
 
 ### 1. Truthful primary outputs
@@ -97,6 +119,20 @@ and no open blocker or major finding
 - Keep reproducible JSON interchange as the audit foundation; add retained
   side-by-side scenario comparison in a future expert-workflow slice.
 
+### 5. Responsive and input-safe interaction
+
+- Use one-column phone and tablet-portrait layouts and complete two-column
+  layouts when the page has at least 960 logical pixels of content width.
+- Stack labels above controls only when the local card width requires it; do not
+  infer touch capability from a narrow column inside an otherwise desktop page.
+- Give primary controls and disclosure rows a 44-point interaction height.
+- On constrained or touch-capable viewports, separate a tap-to-edit numeric
+  action from vertical scroll gestures and validate the value before applying it.
+- Reject NaN, infinity, non-numeric text, and fractional integer fields without
+  changing the last valid model.
+- Keep Report focus and scrolling inside a real modal, then restore focus to the
+  invoking control after close.
+
 ## Recorded test rounds
 
 1. **Round 0 — baseline:** novice, expert, skeptical verifier, and constrained
@@ -122,6 +158,10 @@ and no open blocker or major finding
    on input-basis ambiguity, rerun focused novice/expert/export/narrow tasks after
    the clarification, then repeat release, report-parity, and screenshot gates on
    the versioned artifact.
+9. **Rounds 11–13 — responsive and touch-safe v0.2.2 release:** fail the tagged
+   baseline on phone, tablet, touch, modal, and accessibility-entry tasks; rerun
+   the focused matrix after implementation; then freeze the versioned artifact
+   and repeat numerical, report, screenshot, and release gates.
 
 Each round is evaluated with
 `.agents/skills/run-multi-user-acceptance/scripts/evaluate_acceptance.py`.

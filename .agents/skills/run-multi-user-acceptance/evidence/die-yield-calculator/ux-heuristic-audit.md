@@ -8,10 +8,10 @@ precision, and reproducibility without cluttering the first-use path. A skeptica
 verifier and a keyboard- or narrow-screen user were included as challenge roles.
 
 The findings are based on the structured baseline walkthrough in
-[round-0-baseline.json](rounds/round-0-baseline.json), seven subsequent recorded
-acceptance rounds, current UI source, isolated scripted browser/native walkthroughs,
-and automated tests. The final frozen-artifact evidence is in
-[round-7-v0.2.0-release.json](rounds/round-7-v0.2.0-release.json).
+[round-0-baseline.json](rounds/round-0-baseline.json), subsequent recorded
+acceptance rounds, current UI source, isolated scripted browser/native
+walkthroughs, and automated tests. The focused responsive evidence is in
+[round-12-responsive-focused.json](rounds/round-12-responsive-focused.json).
 Source-backed behavior is not presented as observed user sentiment. Numerical
 correctness remains a separate veto gate; visual clarity cannot compensate for
 an incorrect result.
@@ -23,8 +23,9 @@ an incorrect result.
 The default setup keeps wafer diameter, active die dimensions, defect density,
 and random-defect model visible. Manufacturing geometry, model details, grid
 alignment, probe estimation, and geometry details are collapsed until requested.
-Their headers summarize the current values or selected model, so experts retain
-direct access without making beginners parse every control
+Short, stable headers remain readable and make their full rows usable targets at
+constrained widths; selected values remain visible in the essentials or inside
+the disclosed content
 ([app.rs](../../../../../crates/die-yield-gui/src/app.rs)).
 
 This is intended to reduce initial decision load while preserving a predictable path from
@@ -33,11 +34,9 @@ essential inputs to increasingly specialized assumptions.
 ### Recognition instead of recall
 
 Wafer presets show their diameter class, inputs include units, and the selected
-yield model remains visible in both the selector and its disclosure header. When
-opened, model details show the equation and interpretation rather than requiring
-the user to remember model definitions
-([app.rs](../../../../../crates/die-yield-gui/src/app.rs)). Manufacturing headers also
-surface edge exclusion and X/Y scribe values before expansion.
+yield model remains visible in its selector. When opened, model details show the
+equation and interpretation rather than requiring the user to remember model
+definitions ([app.rs](../../../../../crates/die-yield-gui/src/app.rs)).
 
 ### Visible assumptions and calibrated trust
 
@@ -80,12 +79,14 @@ checks preservation of the last valid analysis
 
 Focused numeric controls are restored across valid/invalid layout transitions,
 while their edit buffers are synchronized only when validation state changes.
-Isolated scripted Firefox/WASM regressions verified both sides of that tradeoff: an invalid
-`40` mm edge exclusion can be replaced with `3` without reacquiring focus, and
-character-by-character entry with a human-like inter-key delay retains
-`10.123456` rather than truncating it. This supports
-recovery without silently presenting stale values as current or damaging valid
-high-precision entry.
+On a constrained or touch-capable viewport, a click-only value opens a dedicated
+editor with its unit and allowed range; Apply or Enter validates before changing
+the model, while Cancel and Escape preserve the previous value. A vertical drag
+starting over that same value belongs to page scrolling and cannot adjust the
+number. Desktop inline fields use the same finite parser, so NaN, infinity,
+alphabetic text, and fractional probe counts are rejected instead of being
+silently clamped or cast. Isolated scripted browser regressions exercise valid,
+invalid, cancel, keyboard-submit, and touch-scroll paths.
 
 ### Precision and auditability
 
@@ -101,7 +102,7 @@ rounded results, rounding semantics, and map caveats
 This precision is for faithful entry and traceability; it is not a claim that the
 underlying process data are known to the same number of digits.
 
-### Narrow and keyboard ordering
+### Narrow, touch, and keyboard ordering
 
 Below the wide-layout threshold, the primary summary appears first, followed by
 calculation setup and then the larger wafer map. This gives a first-time user an
@@ -112,17 +113,29 @@ and illustrative random loss without requiring the geometry disclosure.
 
 Focused controls request scrolling into view, including controls inside
 progressive disclosures. Page Up and Page Down provide viewport navigation,
-top-bar actions have explicit focus rings, and the report dialog supports Escape
-to close ([app.rs](../../../../../crates/die-yield-gui/src/app.rs)). Responsive source tests cover
-360 through 1440 logical pixels. Firefox/WASM walkthroughs at 500 by 1000
-exercised page navigation, visible focus, disclosures, report
-open/close, preset selection, and no-Tab error recovery. Native and browser
-wide/narrow captures were also inspected. Screen-reader behavior and
-supported-platform coverage still require real assistive-technology testing;
-keyboard simulation alone is not accessibility validation.
+top-bar actions have explicit focus rings, and Report confines focus and scroll
+input inside a real modal until Escape, backdrop activation, or Close returns
+focus to the invoking action
+([app.rs](../../../../../crates/die-yield-gui/src/app.rs)). Controls and disclosure
+rows use a 44-point interaction height. Responsive source tests cover 320 through
+1440 logical pixels, while isolated Firefox/WASM walkthroughs cover phone,
+tablet-portrait, tablet-landscape, and 1024-pixel desktop boundaries, rotation,
+touch gestures, visible focus, and modal traversal.
 
-## Remaining non-major expert gaps
+The Web canvas has an application role, a readable name, keyboard instructions,
+and a visible app-spoken feedback toggle with a keyboard shortcut. The eframe Web
+backend used here does not expose the internal AccessKit tree through standard
+browser accessibility APIs, so these mitigations are not equivalent to semantic
+DOM controls or full screen-reader support. No real mobile device, on-screen
+keyboard, VoiceOver, TalkBack, or other assistive technology participated in the
+recorded walkthroughs.
 
+## Remaining known gaps
+
+- **Standard Web accessibility tree:** the labeled canvas, complete keyboard
+  path, and optional app-spoken output do not make each internal egui control
+  enumerable by a standard browser screen reader. A semantic Web adapter or DOM
+  interaction layer remains an architectural follow-up.
 - **Scenario comparison:** there is no side-by-side baseline/candidate view,
   delta explanation, or named scenario library. The deterministic snapshot
   format is a useful foundation, but comparison remains a manual expert task.
